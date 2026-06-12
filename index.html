@@ -10,6 +10,17 @@
 </head>
 <body>
 
+    <!-- PIN LOCK VAULT -->
+    <div id="pinVault" class="pin-vault-overlay hidden">
+        <div class="pin-vault-panel">
+            <h2>Admin Vault</h2>
+            <p>Please enter your 4-digit PIN to access the dashboard.</p>
+            <input type="password" id="pinInput" class="pin-input" maxlength="4" autocomplete="off">
+            <div id="pinError" class="pin-error"></div>
+            <button id="pinSubmitBtn" class="primary-btn" style="width: 100%;">Unlock Dashboard</button>
+        </div>
+    </div>
+
     <!-- ADMIN VIEW -->
     <div id="adminView" class="app-container hidden">
         <!-- Sidebar Navigation -->
@@ -243,15 +254,30 @@
     <!-- Anonymous "Report Empty" Modal (Kiosk Only) -->
     <div id="reportEmptyModal" class="modal-overlay hidden">
         <div class="modal-content panel" style="max-width:400px; text-align:center;">
-            <h2>Report Missing Item</h2>
-            <p style="margin-bottom:20px;">What item is completely out of stock?</p>
-            <textarea id="reportNotes" class="clean-input" rows="3" placeholder="e.g. We need more sugar..."></textarea>
-            <div class="form-actions" style="justify-content:center; margin-top:20px;">
+            <h3>Report Empty Item</h3>
+            <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:15px;">If an item is completely out of stock, leave a note here.</p>
+            <textarea id="reportNotes" class="clean-input" placeholder="E.g., No toilet paper left in stalls" rows="3" style="width:100%; margin-bottom:15px;"></textarea>
+            <div class="form-actions" style="justify-content:center;">
                 <button id="cancelReportBtn" class="secondary-btn">Cancel</button>
-                <button id="submitReportBtn" class="primary-btn" style="background:var(--danger-color)">Submit Report</button>
+                <button id="submitReportBtn" class="primary-btn" style="background:var(--danger-color);">Submit Report</button>
             </div>
         </div>
     </div>
+
+    <!-- CUSTOM CONFIRM MODAL -->
+    <div id="customConfirmModal" class="modal-overlay hidden">
+        <div class="modal-content panel confirm-modal-content">
+            <h3 id="confirmTitle">Are you sure?</h3>
+            <p id="confirmMessage">This action cannot be undone.</p>
+            <div class="confirm-actions">
+                <button id="confirmCancelBtn" class="secondary-btn">Cancel</button>
+                <button id="confirmYesBtn" class="primary-btn">Yes, Proceed</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATIONS CONTAINER -->
+    <div id="toastContainer" class="toast-container"></div>
 
     <script type="module" src="app.js"></script>
 </body>

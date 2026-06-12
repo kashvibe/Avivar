@@ -23,6 +23,78 @@ const LOCATIONS = [
     "118 McMillan road - Office + Factory - Kitchen"
 ];
 
+// --- Custom UI Engines ---
+function showToast(message, type = "info") {
+    const container = document.getElementById("toastContainer");
+    if (!container) return;
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.innerText = message;
+    container.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => toast.classList.add("show"), 10);
+    
+    // Animate out and remove
+    setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 400);
+    }, 3000);
+}
+
+function showConfirm(title, message, onConfirm) {
+    const modal = document.getElementById("customConfirmModal");
+    document.getElementById("confirmTitle").innerText = title;
+    document.getElementById("confirmMessage").innerText = message;
+    
+    const yesBtn = document.getElementById("confirmYesBtn");
+    const cancelBtn = document.getElementById("confirmCancelBtn");
+    
+    // Remove old listeners by cloning
+    const newYes = yesBtn.cloneNode(true);
+    const newCancel = cancelBtn.cloneNode(true);
+    yesBtn.replaceWith(newYes);
+    cancelBtn.replaceWith(newCancel);
+    
+    modal.classList.remove("hidden");
+    
+    newCancel.addEventListener("click", () => modal.classList.add("hidden"));
+    newYes.addEventListener("click", () => {
+        modal.classList.add("hidden");
+        onConfirm();
+    });
+}
+
+// --- Security & PIN Lock ---
+const ADMIN_PIN = "9090"; // Extremely secure for basic internal use
+
+function checkAdminPin() {
+    return new Promise((resolve) => {
+        const vault = document.getElementById("pinVault");
+        const pinInput = document.getElementById("pinInput");
+        const btn = document.getElementById("pinSubmitBtn");
+        const err = document.getElementById("pinError");
+        
+        vault.classList.remove("hidden");
+        pinInput.focus();
+        
+        const tryUnlock = () => {
+            if (pinInput.value === ADMIN_PIN) {
+                vault.classList.add("hidden");
+                resolve(true);
+            } else {
+                err.innerText = "Incorrect PIN.";
+                pinInput.value = "";
+                pinInput.focus();
+                setTimeout(() => err.innerText = "", 2000);
+            }
+        };
+        
+        btn.onclick = tryUnlock;
+        pinInput.onkeyup = (e) => { if (e.key === "Enter") tryUnlock(); };
+    });
+}
+
 // Seed Data for initial migration
 const seedData = [
     { id: "1", itemName: "HP Officejet Pro 9130e Cartridge Black", category: "Stationary", location: LOCATIONS[2], supplier: "O'Donnells", cost: 45.00, packType: "Pack", packSize: 4, unitName: "Cartridge", totalUnits: 6, parLevel: 2, useCase: "HP Color Printer 9130e", consumptionHistory: [], expiryDate: "" },
@@ -41,15 +113,20 @@ let poTabActive = "";
 let appMode = "admin"; 
 let kioskLocation = "";
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     initRouting();
     
-    // UI Events
-    if (appMode === 'admin') initAdminEvents();
-    else initKioskEvents();
-    
-    // Connect to Firebase
-    loadData();
+    // UI Events & Security
+    if (appMode === 'admin') {
+        const unlocked = await checkAdminPin();
+        if (unlocked) {
+            initAdminEvents();
+            loadData();
+        }
+    } else {
+        initKioskEvents();
+        loadData();
+    }
 });
 
 // --- URL Routing ---
@@ -120,7 +197,7 @@ function loadData() {
     }, (error) => {
         console.error("Firestore sync error:", error);
         if (error.code === 'permission-denied') {
-            alert("Firebase Error: Permission Denied. You must go to the Firebase Console -> Firestore Database -> Rules, and set them to 'allow read, write: if true;' to allow the Kiosks to connect.");
+            showToast("Database Permission Denied. Check Firebase rules.", "error");
         }
     });
 }
@@ -446,7 +523,7 @@ function initAdminEvents() {
             const originalText = btn.innerText;
             btn.innerText = "Copied!"; btn.style.backgroundColor = "var(--success-color)"; btn.style.color = "#fff";
             setTimeout(() => { btn.innerText = originalText; btn.style.backgroundColor = ""; btn.style.color = ""; }, 1500);
-        }).catch(err => { alert("Failed to copy text."); });
+        }).catch(err => { showToast("Failed to copy text.", "error"); });
     });
 
     document.getElementById("totalUnits").addEventListener("input", updatePackHelper);
@@ -548,7 +625,7 @@ function initKioskEvents() {
     document.getElementById("submitReportBtn").addEventListener("click", () => {
         const note = document.getElementById("reportNotes").value;
         if(note) {
-            alert("Report submitted to Admin.");
+            showToast("Report submitted.", "success");
             document.getElementById("reportNotes").value = "";
             document.getElementById("reportEmptyModal").classList.add("hidden");
         }
@@ -584,7 +661,9 @@ window.takeItemKiosk = function(id) {
 }
 
 window.flagDiscarded = function(id) {
-    if(confirm("Mark 1 unit as discarded/expired? (This won't count towards normal consumption rate)")) {
-        window.adjustStock(id, -1, "discarded");
-    }
+    showConfirm(
+        "Discard Item?",
+        "Mark 1 unit as discarded/expired? This will not impact your normal consumption rate prediction.",
+        () => { window.adjustStock(id, -1, "discarded"); }
+    );
 }

@@ -480,67 +480,161 @@ textarea {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background: #f1f5f9;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
 }
 
 .kiosk-header {
-    background: #fff;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     padding: 24px;
     text-align: center;
-    box-shadow: var(--shadow-sm);
-    position: relative;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+    position: sticky;
+    top: 0;
+    z-index: 50;
 }
-.kiosk-header h1 { color: var(--accent-color); margin-bottom: 4px; font-size: 1.8rem; }
+.kiosk-header h1 { color: var(--accent-color); margin-bottom: 4px; font-size: 2rem; font-weight: 800; letter-spacing: -0.5px;}
 .kiosk-header p { color: var(--text-secondary); font-weight: 500; }
-#exitKioskBtn { position: absolute; top: 24px; right: 24px; }
+#exitKioskBtn { position: absolute; top: 24px; right: 24px; font-weight: 600;}
 
 .kiosk-grid {
     flex-grow: 1;
     overflow-y: auto;
-    padding: 24px;
+    padding: 32px 24px;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
     align-content: start;
 }
 
 .kiosk-card {
-    background: #fff;
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: var(--shadow-md);
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 24px;
+    padding: 32px 24px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+    border: 1px solid rgba(255, 255, 255, 0.8);
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
     text-align: center;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.kiosk-card h3 { font-size: 1.3rem; }
+.kiosk-card h3 { font-size: 1.4rem; color: var(--text-primary); line-height: 1.3;}
 .kiosk-card .stock-readout {
-    font-size: 1.1rem;
+    font-size: 1.15rem;
     color: var(--text-secondary);
-    background: #f8fafc;
-    padding: 8px;
-    border-radius: 8px;
+    background: #f1f5f9;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 500;
 }
 .kiosk-card .btn-take {
-    background: var(--accent-color);
+    background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
     color: #fff;
-    font-size: 1.5rem;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.3);
+    font-size: 1.6rem;
+    font-weight: 700;
+    padding: 24px;
+    border-radius: 20px;
+    box-shadow: 0 10px 20px rgba(2, 132, 199, 0.25);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
 }
-.kiosk-card .btn-take:active { transform: scale(0.98); }
+.kiosk-card .btn-take:active { 
+    transform: scale(0.95); 
+    box-shadow: 0 5px 10px rgba(2, 132, 199, 0.3);
+}
 
 .kiosk-fab {
     position: fixed;
-    bottom: 30px;
-    right: 30px;
-    background: var(--danger-color);
+    bottom: 40px;
+    right: 40px;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
     color: #fff;
+    border: none;
     border-radius: 50px;
-    padding: 16px 24px;
+    padding: 18px 32px;
     font-size: 1.1rem;
-    box-shadow: var(--shadow-lg);
+    font-weight: 700;
+    box-shadow: 0 10px 25px rgba(220, 38, 38, 0.4);
+    cursor: pointer;
     z-index: 100;
+    transition: transform 0.2s;
 }
+.kiosk-fab:active { transform: scale(0.95); }
+
+/* ------------- PIN LOCK VAULT ------------- */
+.pin-vault-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    flex-direction: column;
+}
+.pin-vault-panel {
+    background: #fff;
+    padding: 40px;
+    border-radius: 24px;
+    box-shadow: var(--shadow-lg);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+}
+.pin-vault-panel h2 { margin-bottom: 10px; color: var(--accent-color); }
+.pin-vault-panel p { color: var(--text-secondary); margin-bottom: 24px; font-size: 0.95rem;}
+.pin-input {
+    width: 100%;
+    font-size: 2rem;
+    text-align: center;
+    letter-spacing: 10px;
+    padding: 16px;
+    border-radius: 12px;
+    border: 2px solid var(--panel-border);
+    margin-bottom: 24px;
+    font-family: monospace;
+}
+.pin-input:focus { border-color: var(--accent-color); outline: none; }
+.pin-error { color: var(--danger-color); font-size: 0.9rem; margin-top: -10px; margin-bottom: 20px; min-height: 20px;}
+
+/* ------------- CUSTOM TOAST NOTIFICATIONS ------------- */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 10000;
+    pointer-events: none;
+}
+.toast {
+    background: #1e293b;
+    color: #fff;
+    padding: 16px 24px;
+    border-radius: 50px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { background: var(--success-color); }
+.toast.error { background: var(--danger-color); }
+.toast.info { background: var(--accent-color); }
+
+/* ------------- CUSTOM CONFIRM MODAL ------------- */
+.confirm-modal-content {
+    max-width: 400px;
+    text-align: center;
+}
+.confirm-modal-content h3 { margin-bottom: 12px; font-size: 1.3rem; }
+.confirm-modal-content p { color: var(--text-secondary); margin-bottom: 24px; line-height: 1.5; }
+.confirm-actions { display: flex; gap: 12px; justify-content: center; }
