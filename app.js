@@ -16,12 +16,17 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // --- Avivar V3 Logic ---
-const LOCATIONS = [
-    "290 Springs Road Farm breakout area",
-    "118 McMillan Road - bottom Farm - breakout area",
-    "118 McMillan road - Office - Stationary",
-    "118 McMillan road - Office + Factory - Kitchen"
-];
+let appSettings = {
+    categories: ["Stationary", "Kitchen", "Washroom", "Farm Breakroom", "Seasonal", "Other"],
+    locations: [
+        "290 Springs Road Farm breakout area",
+        "118 McMillan Road - bottom Farm - breakout area",
+        "118 McMillan road - Office - Stationary",
+        "118 McMillan road - Office + Factory - Kitchen"
+    ],
+    packTypes: ["Box", "Carton", "Case", "Pack", "Pallet", "Roll", "Bag", "Drum", "Tray"],
+    baseUnits: ["Each", "Piece", "Roll", "Litre", "Gram", "Pair", "Cartridge", "Meter", "Unit"]
+};
 
 // --- Custom UI Engines ---
 function showToast(message, type = "info") {
@@ -191,8 +196,26 @@ function calculateDaysRemaining(item) {
     return parseInt(item.totalUnits) / (recentUsage / 14); 
 }
 
+function getEffectiveParLevel(item) {
+    let par = parseInt(item.parLevel) || 0;
+    if (item.parLevelUnit === 'pack') par = par * (parseInt(item.packSize) || 1);
+    return par;
+}
+
 // --- FIREBASE DATA ENGINE ---
 function loadData() {
+    if (appMode === 'admin') {
+        onSnapshot(doc(db, "settings", "main"), (docSnap) => {
+            if (docSnap.exists()) {
+                appSettings = docSnap.data();
+            } else {
+                setDoc(doc(db, "settings", "main"), appSettings);
+            }
+            if (typeof renderSettings === "function") renderSettings();
+            populateLocationDropdowns();
+        });
+    }
+
     onSnapshot(collection(db, "inventory"), (snapshot) => {
         inventory = [];
         snapshot.forEach(doc => inventory.push({ id: doc.id, ...doc.data() }));
@@ -471,7 +494,7 @@ function renderKPIs() {
     
     const totalItems = inventory.length;
     const totalValue = inventory.reduce((sum, i) => sum + (parseInt(i.totalUnits) * parseFloat(i.cost)), 0);
-    const lowStock = inventory.filter(i => parseInt(i.totalUnits) <= parseInt(i.parLevel)).length;
+    const lowStock = inventory.filter(i => parseInt(i.totalUnits) <= getEffectiveParLevel(i)).length;
     const reportCount = activeReports.length;
     
     bar.innerHTML = `
@@ -526,7 +549,7 @@ function renderActionPanel() {
     }
 
     // 2. Render Low Stock Items
-    let flagged = inventory.filter(i => parseInt(i.totalUnits) <= parseInt(i.parLevel));
+    let flagged = inventory.filter(i => parseInt(i.totalUnits) <= getEffectiveParLevel(i));
     flagged.forEach(item => {
         hasStockAlerts = true;
         const li = document.createElement("li");
@@ -534,7 +557,7 @@ function renderActionPanel() {
         li.innerHTML = `
             <div class="flagged-info">
                 <span class="flagged-item-name">${item.itemName}</span>
-                <span class="flagged-item-details">Stock: ${item.totalUnits} / Par: ${item.parLevel}</span>
+                <span class="flagged-item-details">Stock: ${item.totalUnits} / Par: ${item.parLevel} ${item.parLevelUnit === 'pack' ? (item.packType + 's') : (item.unitName + 's')}</span>
                 <span class="flagged-item-details">${item.location}</span>
             </div>
         `;
@@ -576,9 +599,9 @@ function renderActionPanel() {
     // PO Logic
     const poData = {};
     inventory.forEach(item => {
-        if (item.supplier && parseInt(item.totalUnits) <= parseInt(item.parLevel)) {
+        if (item.supplier && parseInt(item.totalUnits) <= getEffectiveParLevel(item)) {
             if (!poData[item.supplier]) poData[item.supplier] = [];
-            const targetUnits = Math.max(parseInt(item.parLevel) * 2, parseInt(item.packSize));
+            const targetUnits = Math.max(getEffectiveParLevel(item) * 2, parseInt(item.packSize));
             const unitsNeeded = Math.max(1, targetUnits - parseInt(item.totalUnits));
             const packsToOrder = Math.ceil(unitsNeeded / (parseInt(item.packSize) || 1));
             poData[item.supplier].push(`${packsToOrder}x ${item.packType} of ${item.itemName}`);
@@ -616,7 +639,7 @@ function drawAnalytics() {
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const spendMap = {}; LOCATIONS.forEach(l => spendMap[l] = 0);
+    const spendMap = {}; appSettings.locations.forEach(l => spendMap[l] = 0);
     const now = Date.now();
     const thirtyDaysAgo = now - (30 * 86400000);
     const sevenDaysAgo = now - (7 * 86400000);
@@ -697,7 +720,8 @@ function initAdminEvents() {
     document.getElementById("productForm").addEventListener("submit", saveProduct);
 
     const locSelect = document.getElementById("kioskLocationSelect");
-    LOCATIONS.forEach(l => {
+    locSelect.innerHTML = "";
+    appSettings.locations.forEach(l => {
         const opt = document.createElement("option"); opt.value = l; opt.innerText = l;
         locSelect.appendChild(opt);
     });
@@ -744,6 +768,8 @@ function initAdminEvents() {
         importBtn.addEventListener("click", () => fileInput.click());
         fileInput.addEventListener("change", handleCSVImport);
     }
+    
+    initSettingsEvents();
 
     // Keyboard Shortcuts
     document.addEventListener("keydown", (e) => {
@@ -764,9 +790,23 @@ function updatePackHelper() {
 
 function populateLocationDropdowns() {
     const select = document.getElementById("location");
-    select.innerHTML = "";
-    LOCATIONS.forEach(l => { const opt = document.createElement("option"); opt.value = l; opt.innerText = l; select.appendChild(opt); });
+    if(select) {
+        select.innerHTML = "";
+        appSettings.locations.forEach(l => { const opt = document.createElement("option"); opt.value = l; opt.innerText = l; select.appendChild(opt); });
+    }
     
+    const catSelect = document.getElementById("category");
+    if(catSelect) {
+        catSelect.innerHTML = "";
+        appSettings.categories.forEach(c => { const opt = document.createElement("option"); opt.value = c; opt.innerText = c; catSelect.appendChild(opt); });
+    }
+
+    const packDatalist = document.getElementById("packNameOptions");
+    if(packDatalist) packDatalist.innerHTML = appSettings.packTypes.map(p => `<option value="${p}">`).join("");
+
+    const unitDatalist = document.getElementById("unitNameOptions");
+    if(unitDatalist) unitDatalist.innerHTML = appSettings.baseUnits.map(u => `<option value="${u}">`).join("");
+
     const datalist = document.getElementById("useCaseOptions");
     if(datalist) {
         const useCases = [...new Set(inventory.map(i => i.useCase).filter(s => s))];
@@ -795,6 +835,7 @@ window.editProduct = function(id = null) {
             document.getElementById("unitName").value = item.unitName || "Unit";
             document.getElementById("totalUnits").value = item.totalUnits;
             document.getElementById("parLevel").value = item.parLevel;
+            document.getElementById("parLevelUnit").value = item.parLevelUnit || "unit";
             document.getElementById("expiryDate").value = item.expiryDate || "";
         }
     } else { document.getElementById("modalTitle").innerText = "Add New Product"; }
@@ -820,6 +861,7 @@ async function saveProduct(e) {
         unitName: document.getElementById("unitName").value,
         totalUnits: parseInt(document.getElementById("totalUnits").value) || 0,
         parLevel: parseInt(document.getElementById("parLevel").value) || 0,
+        parLevelUnit: document.getElementById("parLevelUnit").value,
         expiryDate: document.getElementById("expiryDate").value,
         consumptionHistory: id ? (inventory.find(i => i.id === id)?.consumptionHistory || []) : []
     };
@@ -875,15 +917,67 @@ function renderKiosk() {
     localInventory.forEach(item => {
         const card = document.createElement("div");
         card.className = "kiosk-card";
-        const stockDisplay = formatStock(item.totalUnits, item.packSize, item.packType, item.unitName);
+        const stockDisplay = formatStock(item.totalUnits, item.packSize, item.packType, item.unitName);            
+        const pack = item.packType ? `<div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">1 ${item.packType} = ${item.packSize} ${item.unitName}(s)</div>` : "";
         card.innerHTML = `
             <h3>${item.itemName}</h3>
-            <div class="stock-readout">Current: <strong>${stockDisplay}</strong></div>
-            <button class="btn-take" onclick="window.takeItemKiosk('${item.id}', event)">Take 1 ${item.unitName}</button>
+            ${pack}
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+                <div class="stock-readout">${stockDisplay}</div>
+                <button class="btn-take" onclick="window.takeItemKiosk('${item.id}', event)">Take 1 ${item.unitName}</button>
+            </div>
             <button class="text-btn" style="color:var(--warning-color);" onclick="window.flagDiscarded('${item.id}')">Flag 1 Discarded</button>
         `;
         grid.appendChild(card);
     });
+}
+
+// --- SETTINGS ENGINE ---
+function renderSettings() {
+    const renderList = (id, arr, key) => {
+        const ul = document.getElementById(id);
+        if(!ul) return;
+        ul.innerHTML = "";
+        arr.forEach((val, i) => {
+            const li = document.createElement("li");
+            li.innerHTML = `<span>${val}</span> <button class="delete-btn" onclick="removeSetting('${key}', ${i})">✖</button>`;
+            ul.appendChild(li);
+        });
+    };
+    renderList("settingsCategoryList", appSettings.categories, "categories");
+    renderList("settingsLocationList", appSettings.locations, "locations");
+    renderList("settingsPackTypeList", appSettings.packTypes, "packTypes");
+    renderList("settingsUnitList", appSettings.baseUnits, "baseUnits");
+}
+
+async function saveSettings() {
+    await setDoc(doc(db, "settings", "main"), appSettings);
+    showToast("Settings updated successfully", "success");
+}
+
+window.removeSetting = async function(key, index) {
+    appSettings[key].splice(index, 1);
+    await saveSettings();
+};
+
+function initSettingsEvents() {
+    const setupAdd = (btnId, inputId, key) => {
+        const btn = document.getElementById(btnId);
+        if(!btn) return;
+        btn.addEventListener("click", async () => {
+            const input = document.getElementById(inputId);
+            const val = input.value.trim();
+            if(val) {
+                appSettings[key].push(val);
+                input.value = "";
+                await saveSettings();
+            }
+        });
+    };
+    setupAdd("addCategoryBtn", "newCategoryInput", "categories");
+    setupAdd("addLocationBtn", "newLocationInput", "locations");
+    setupAdd("addPackTypeBtn", "newPackTypeInput", "packTypes");
+    setupAdd("addUnitBtn", "newUnitInput", "baseUnits");
 }
 
 window.takeItemKiosk = function(id, e) {
