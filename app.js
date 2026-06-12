@@ -339,10 +339,10 @@ window.restockProduct = function(id) {
 };
 
 function exportCSV() {
-    const headers = ["Item Name","Category","Location","Supplier","Cost","Pack Type","Pack Size","Unit Name","Total Units","Par Level","Use Case","Expiry Date"];
+    const headers = ["Item Name","Category","Location","Supplier","Cost","Pack Type","Pack Size","Unit Name","Total Units","Par Level","Par Unit","Use Case","Expiry Date"];
     const rows = inventory.map(i => [
         `"${i.itemName}"`, i.category, `"${i.location}"`, i.supplier, i.cost,
-        i.packType, i.packSize, i.unitName, i.totalUnits, i.parLevel,
+        i.packType, i.packSize, i.unitName, i.totalUnits, i.parLevel, i.parLevelUnit || "unit",
         `"${i.useCase || ''}"`, i.expiryDate || ""
     ]);
     const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
@@ -460,6 +460,8 @@ function renderAdmin() {
         const stockDisplay = formatStock(item.totalUnits, item.packSize, item.packType, item.unitName);
         const useCaseBadge = item.useCase ? `<span class="badge badge-info" style="margin-left: 0; margin-top: 4px; display: inline-block;">${item.useCase}</span>` : "";
         
+        const parDisplay = item.parLevelUnit === 'pack' ? `${item.parLevel} ${item.packType}(s)` : `${item.parLevel} ${item.unitName}(s)`;
+        
         tr.className = rowClasses.trim();
         tr.innerHTML = `
             <td>
@@ -474,7 +476,7 @@ function renderAdmin() {
                     <span class="stock-primary">${stockDisplay}</span>
                 </div>
             </td>
-            <td>${item.parLevel}</td>
+            <td>${parDisplay}</td>
             <td><span style="font-weight:600">${daysStr}</span></td>
             <td>
                 <div class="action-btns">
@@ -553,16 +555,17 @@ function renderActionPanel() {
         reportsList.innerHTML = `<li class="flagged-item" style="border:none; justify-content:center; color:var(--text-secondary);">All clear. No active reports.</li>`;
     }
 
-    // 2. Render Low Stock Items
     let flagged = inventory.filter(i => parseInt(i.totalUnits) <= getEffectiveParLevel(i));
     flagged.forEach(item => {
         hasStockAlerts = true;
+        const stockDisplay = formatStock(item.totalUnits, item.packSize, item.packType, item.unitName);
+        const parDisplay = item.parLevelUnit === 'pack' ? `${item.parLevel} ${item.packType}(s)` : `${item.parLevel} ${item.unitName}(s)`;
         const li = document.createElement("li");
         li.className = "flagged-item warning";
         li.innerHTML = `
             <div class="flagged-info">
                 <span class="flagged-item-name">${item.itemName}</span>
-                <span class="flagged-item-details">Stock: ${item.totalUnits} / Par: ${item.parLevel} ${item.parLevelUnit === 'pack' ? (item.packType + 's') : (item.unitName + 's')}</span>
+                <span class="flagged-item-details">Stock: ${stockDisplay} / Par: ${parDisplay}</span>
                 <span class="flagged-item-details">${item.location}</span>
             </div>
         `;
