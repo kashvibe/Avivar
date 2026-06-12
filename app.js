@@ -1,5 +1,21 @@
-// --- Avivar V2 Logic ---
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, doc, setDoc, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+// --- Firebase Configuration ---
+const firebaseConfig = {
+  apiKey: "AIzaSyBjsUL6YB4PZjT0RXwzoQkQXKcno4fk91A",
+  authDomain: "avivar-82377.firebaseapp.com",
+  projectId: "avivar-82377",
+  storageBucket: "avivar-82377.firebasestorage.app",
+  messagingSenderId: "670821781658",
+  appId: "1:670821781658:web:317921770b546e8d598f23",
+  measurementId: "G-SL568D5GVQ"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// --- Avivar V3 Logic ---
 const LOCATIONS = [
     "290 Springs Road Farm breakout area",
     "118 McMillan Road - bottom Farm - breakout area",
@@ -7,38 +23,13 @@ const LOCATIONS = [
     "118 McMillan road - Office + Factory - Kitchen"
 ];
 
-// Seed Data with Complex Packaging Schema
+// Seed Data for initial migration
 const seedData = [
-    { 
-        id: "1", itemName: "HP Officejet Pro 9130e Cartridge Black", category: "Stationary", location: LOCATIONS[2], supplier: "O'Donnells", cost: 45.00, 
-        packType: "Pack", packSize: 4, unitName: "Cartridge", totalUnits: 6, parLevel: 2, 
-        useCase: "HP Color Printer 9130e",
-        consumptionHistory: [], expiryDate: ""
-    },
-    { 
-        id: "2", itemName: "Coles 3-ply Toilet Paper", category: "Washroom", location: LOCATIONS[1], supplier: "Coles", cost: 0.85, 
-        packType: "Box", packSize: 48, unitName: "Roll", totalUnits: 100, parLevel: 20, 
-        useCase: "",
-        consumptionHistory: [], expiryDate: ""
-    },
-    { 
-        id: "3", itemName: "Long Life Milk 1L", category: "Kitchen", location: LOCATIONS[3], supplier: "Coles", cost: 1.65, 
-        packType: "Carton", packSize: 12, unitName: "Litre", totalUnits: 15, parLevel: 5, 
-        useCase: "",
-        consumptionHistory: [], expiryDate: getFutureDate(12)
-    },
-    { 
-        id: "4", itemName: "Nescafé Blend 43 Coffee", category: "Kitchen", location: LOCATIONS[3], supplier: "Coles", cost: 14.50, 
-        packType: "Tin", packSize: 1, unitName: "Tin", totalUnits: 2, parLevel: 1, 
-        useCase: "",
-        consumptionHistory: [], expiryDate: ""
-    },
-    { 
-        id: "5", itemName: "Work Gloves", category: "Farm", location: LOCATIONS[0], supplier: "Bunnings", cost: 5.00, 
-        packType: "Pack", packSize: 10, unitName: "Pair", totalUnits: 35, parLevel: 10, 
-        useCase: "",
-        consumptionHistory: [], expiryDate: ""
-    }
+    { id: "1", itemName: "HP Officejet Pro 9130e Cartridge Black", category: "Stationary", location: LOCATIONS[2], supplier: "O'Donnells", cost: 45.00, packType: "Pack", packSize: 4, unitName: "Cartridge", totalUnits: 6, parLevel: 2, useCase: "HP Color Printer 9130e", consumptionHistory: [], expiryDate: "" },
+    { id: "2", itemName: "Coles 3-ply Toilet Paper", category: "Washroom", location: LOCATIONS[1], supplier: "Coles", cost: 0.85, packType: "Box", packSize: 48, unitName: "Roll", totalUnits: 100, parLevel: 20, useCase: "", consumptionHistory: [], expiryDate: "" },
+    { id: "3", itemName: "Long Life Milk 1L", category: "Kitchen", location: LOCATIONS[3], supplier: "Coles", cost: 1.65, packType: "Carton", packSize: 12, unitName: "Litre", totalUnits: 15, parLevel: 5, useCase: "", consumptionHistory: [], expiryDate: getFutureDate(12) },
+    { id: "4", itemName: "Nescafé Blend 43 Coffee", category: "Kitchen", location: LOCATIONS[3], supplier: "Coles", cost: 14.50, packType: "Tin", packSize: 1, unitName: "Tin", totalUnits: 2, parLevel: 1, useCase: "", consumptionHistory: [], expiryDate: "" },
+    { id: "5", itemName: "Work Gloves", category: "Farm", location: LOCATIONS[0], supplier: "Bunnings", cost: 5.00, packType: "Pack", packSize: 10, unitName: "Pair", totalUnits: 35, parLevel: 10, useCase: "", consumptionHistory: [], expiryDate: "" }
 ];
 
 let inventory = [];
@@ -47,24 +38,21 @@ let currentSearch = "";
 let sortColumn = "itemName";
 let sortAsc = true;
 let poTabActive = ""; 
-let appMode = "admin"; // 'admin' or 'kiosk'
+let appMode = "admin"; 
 let kioskLocation = "";
 
-// --- Initialization ---
 document.addEventListener("DOMContentLoaded", () => {
     initRouting();
+    
+    // UI Events
+    if (appMode === 'admin') initAdminEvents();
+    else initKioskEvents();
+    
+    // Connect to Firebase
     loadData();
-
-    if (appMode === 'admin') {
-        initAdminEvents();
-        renderAdmin();
-    } else {
-        initKioskEvents();
-        renderKiosk();
-    }
 });
 
-// --- URL Routing (Kiosk vs Admin) ---
+// --- URL Routing ---
 function initRouting() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("mode") === "kiosk") {
@@ -83,126 +71,104 @@ function initRouting() {
 
 // --- Utility Functions ---
 function generateId() { return Math.random().toString(36).substr(2, 9); }
-function getFutureDate(days) {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    return d.toISOString().split('T')[0];
-}
+function getFutureDate(days) { const d = new Date(); d.setDate(d.getDate() + days); return d.toISOString().split('T')[0]; }
 
-// Complex Packaging Math Output
 function formatStock(totalUnits, packSize, packType, unitName) {
     totalUnits = parseInt(totalUnits);
     packSize = parseInt(packSize);
     
-    if (packSize === 1 || isNaN(packSize) || packSize === 0) {
-        return `${totalUnits} ${unitName}(s)`;
-    }
+    if (packSize === 1 || isNaN(packSize) || packSize === 0) return `${totalUnits} ${unitName}(s)`;
     
     const packs = Math.floor(totalUnits / packSize);
     const individuals = totalUnits % packSize;
     
-    let result = "";
-    if (packs > 0 && individuals > 0) {
-        result = `${packs} ${packType}(s) (of ${packSize}) and ${individuals} loose ${unitName}(s)`;
-    } else if (packs > 0 && individuals === 0) {
-        result = `${packs} ${packType}(s) (of ${packSize})`;
-    } else if (packs === 0 && individuals > 0) {
-        result = `${individuals} loose ${unitName}(s)`;
-    } else {
-        result = "0";
-    }
-    
-    return result;
+    if (packs > 0 && individuals > 0) return `${packs} ${packType}(s) (of ${packSize}) and ${individuals} loose ${unitName}(s)`;
+    if (packs > 0 && individuals === 0) return `${packs} ${packType}(s) (of ${packSize})`;
+    if (packs === 0 && individuals > 0) return `${individuals} loose ${unitName}(s)`;
+    return "0";
 }
 
-// --- Predictive Math & Data Engine ---
 function calculateDaysRemaining(item) {
     if (!item.consumptionHistory || item.consumptionHistory.length === 0) return null;
     const now = Date.now();
     const fourteenDaysAgo = now - (14 * 86400000);
-    
-    // Sum quantities consumed in last 14 days
     const recentUsage = item.consumptionHistory
         .filter(entry => entry.timestamp >= fourteenDaysAgo && entry.reason === "consumed")
         .reduce((sum, entry) => sum + entry.quantity, 0);
         
     if (recentUsage === 0) return Infinity;
-    
-    const averageDailyUsage = recentUsage / 14; 
-    return parseInt(item.totalUnits) / averageDailyUsage;
+    return parseInt(item.totalUnits) / (recentUsage / 14); 
 }
 
+// --- FIREBASE DATA ENGINE ---
 function loadData() {
-    const v2Data = localStorage.getItem("avivar_v2_inventory");
-    if (v2Data) {
-        inventory = JSON.parse(v2Data);
-    } else {
-        // Attempt to migrate old data if it exists
-        const v1Data = localStorage.getItem("avivar_inventory");
-        if (v1Data) {
-            const oldList = JSON.parse(v1Data);
-            inventory = oldList.map(old => {
-                return {
-                    id: old.id,
-                    itemName: old.itemName,
-                    category: old.category || "Other",
-                    // Map old locations to new strict locations, default to first if no match
-                    location: LOCATIONS.includes(old.location) ? old.location : LOCATIONS[0], 
-                    supplier: old.supplier || "",
-                    cost: parseFloat(old.cost) || 0,
-                    packType: "Pack",
-                    packSize: 1,
-                    unitName: old.unit || "Unit",
-                    totalUnits: parseInt(old.stockLevel) || 0,
-                    parLevel: parseInt(old.parLevel) || 0,
-                    consumptionHistory: old.consumptionHistory || [],
-                    expiryDate: old.expiryDate || ""
-                };
-            });
-            saveData();
-        } else {
-            // First load ever
-            inventory = [...seedData];
-            saveData();
-        }
-    }
-}
-
-function saveData() {
-    localStorage.setItem("avivar_v2_inventory", JSON.stringify(inventory));
-    if (appMode === 'admin') renderAdmin();
-    if (appMode === 'kiosk') renderKiosk();
-}
-
-// --- State Mutations ---
-function adjustStock(id, change, reason = "consumed") {
-    const item = inventory.find(i => i.id === id);
-    if (item) {
-        const oldStock = parseInt(item.totalUnits);
-        const newStock = Math.max(0, oldStock + change);
+    const invCol = collection(db, "inventory");
+    
+    // Live Cloud Sync
+    onSnapshot(invCol, (snapshot) => {
+        const data = [];
+        snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
         
-        // Log consumption
-        if (newStock < oldStock) {
-            item.consumptionHistory.push({
-                timestamp: Date.now(),
-                quantity: oldStock - newStock,
-                costAtTime: parseFloat(item.cost),
-                reason: reason // 'consumed', 'discarded', etc.
-            });
+        if (data.length === 0) {
+            // Cloud is empty. Migrate local data upwards.
+            migrateLocalToFirebase();
+        } else {
+            inventory = data;
+            if (appMode === 'admin') { renderAdmin(); drawAnalytics(); }
+            if (appMode === 'kiosk') renderKiosk();
         }
-        item.totalUnits = newStock;
-        saveData();
-    }
+    }, (error) => {
+        console.error("Firestore sync error:", error);
+        if (error.code === 'permission-denied') {
+            alert("Firebase Error: Permission Denied. You must go to the Firebase Console -> Firestore Database -> Rules, and set them to 'allow read, write: if true;' to allow the Kiosks to connect.");
+        }
+    });
 }
+
+async function migrateLocalToFirebase() {
+    console.log("Migrating local database to Firebase Cloud...");
+    const localData = localStorage.getItem("avivar_v2_inventory");
+    let initialData = seedData;
+    if (localData) initialData = JSON.parse(localData);
+    
+    const batch = writeBatch(db);
+    initialData.forEach(item => {
+        const docRef = doc(db, "inventory", item.id);
+        batch.set(docRef, item);
+    });
+    
+    await batch.commit();
+    console.log("Migration complete!");
+}
+
+// Global functions for inline HTML event handlers
+window.adjustStock = async function(id, change, reason = "consumed") {
+    const item = inventory.find(i => i.id === id);
+    if (!item) return;
+    
+    const oldStock = parseInt(item.totalUnits);
+    const newStock = Math.max(0, oldStock + change);
+    
+    let newHistory = [...(item.consumptionHistory || [])];
+    if (newStock < oldStock) {
+        newHistory.push({
+            timestamp: Date.now(),
+            quantity: oldStock - newStock,
+            costAtTime: parseFloat(item.cost),
+            reason: reason
+        });
+    }
+    
+    // Push update directly to cloud. onSnapshot will automatically re-render the UI on all devices!
+    const docRef = doc(db, "inventory", id);
+    await setDoc(docRef, {
+        totalUnits: newStock,
+        consumptionHistory: newHistory
+    }, { merge: true });
+};
 
 // --- ADMIN RENDER LOGIC ---
 function renderAdmin() {
-    renderTable();
-    renderActionPanel();
-    drawAnalytics();
-}
-
-function renderTable() {
     const tbody = document.getElementById("inventoryBody");
     tbody.innerHTML = "";
 
@@ -250,7 +216,6 @@ function renderTable() {
             }
         } else if (item._daysRemaining === Infinity) { daysStr = "No Usage"; }
 
-        // Formatting Complex Stock
         const stockDisplay = formatStock(item.totalUnits, item.packSize, item.packType, item.unitName);
         const useCaseBadge = item.useCase ? `<span class="badge badge-info" style="margin-left: 0; margin-top: 4px; display: inline-block;">${item.useCase}</span>` : "";
         
@@ -280,6 +245,8 @@ function renderTable() {
         `;
         tbody.appendChild(tr);
     });
+    
+    renderActionPanel();
 }
 
 function renderActionPanel() {
@@ -310,11 +277,9 @@ function renderActionPanel() {
         if (isFlagged) {
             if (item.supplier && (type === 'danger' || type === 'warning')) {
                 if (!poData[item.supplier]) poData[item.supplier] = [];
-                // Suggest ordering enough to double the par level (simple heuristic)
                 const targetUnits = Math.max(parseInt(item.parLevel) * 2, parseInt(item.packSize));
                 const unitsNeeded = Math.max(1, targetUnits - parseInt(item.totalUnits));
                 const packsToOrder = Math.ceil(unitsNeeded / (parseInt(item.packSize) || 1));
-                
                 poData[item.supplier].push(`${packsToOrder}x ${item.packType} of ${item.itemName}`);
             }
 
@@ -339,12 +304,7 @@ function renderPOTabs(poData) {
     const suppliers = Object.keys(poData);
     
     tabsContainer.innerHTML = "";
-    
-    if (suppliers.length === 0) {
-        content.value = "No items require ordering.";
-        return;
-    }
-
+    if (suppliers.length === 0) { content.value = "No items require ordering."; return; }
     if (!suppliers.includes(poTabActive)) poTabActive = suppliers[0];
 
     suppliers.forEach(supplier => {
@@ -367,31 +327,22 @@ function drawAnalytics() {
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Calculate spend per location
-    const spendMap = {};
-    LOCATIONS.forEach(l => spendMap[l] = 0);
-    
+    const spendMap = {}; LOCATIONS.forEach(l => spendMap[l] = 0);
     const now = Date.now();
     const thirtyDaysAgo = now - (30 * 86400000);
     const sevenDaysAgo = now - (7 * 86400000);
-    
-    let dayBuckets = [0,0,0,0,0,0,0]; // 7 days
+    let dayBuckets = [0,0,0,0,0,0,0];
 
     inventory.forEach(item => {
         item.consumptionHistory.forEach(entry => {
-            if (entry.timestamp >= thirtyDaysAgo) {
-                // Monthly Spend
-                spendMap[item.location] += (entry.quantity * entry.costAtTime);
-            }
+            if (entry.timestamp >= thirtyDaysAgo) spendMap[item.location] += (entry.quantity * entry.costAtTime);
             if (entry.timestamp >= sevenDaysAgo) {
-                // 7 Day volume (count of units)
                 const dayIndex = 6 - Math.floor((now - entry.timestamp) / 86400000);
                 if(dayIndex >= 0 && dayIndex < 7) dayBuckets[dayIndex] += entry.quantity;
             }
         });
     });
 
-    // Render Spend List
     const spendList = document.getElementById("spendList");
     spendList.innerHTML = "";
     Object.keys(spendMap).forEach(loc => {
@@ -403,16 +354,10 @@ function drawAnalytics() {
         }
     });
 
-    // Draw Bar Chart (Pure JS)
-    const maxVal = Math.max(...dayBuckets, 10); // min scale 10
-    const barWidth = 40;
-    const spacing = 30;
-    const startX = 50;
-    const bottomY = canvas.height - 30;
+    const maxVal = Math.max(...dayBuckets, 10); 
+    const barWidth = 40; const spacing = 30; const startX = 50; const bottomY = canvas.height - 30;
 
-    ctx.fillStyle = "#64748b";
-    ctx.font = "12px Inter";
-    
+    ctx.fillStyle = "#64748b"; ctx.font = "12px Inter";
     dayBuckets.forEach((val, i) => {
         const barHeight = (val / maxVal) * (canvas.height - 60);
         const x = startX + (i * (barWidth + spacing));
@@ -427,10 +372,8 @@ function drawAnalytics() {
     });
 }
 
-
 // --- ADMIN EVENTS ---
 function initAdminEvents() {
-    // Sidebar Views
     document.querySelectorAll(".nav-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
             document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
@@ -441,7 +384,6 @@ function initAdminEvents() {
         });
     });
 
-    // Filters
     document.querySelectorAll(".filter-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
             document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
@@ -451,7 +393,6 @@ function initAdminEvents() {
         });
     });
 
-    // Sorting & Searching
     document.getElementById("searchInput").addEventListener("input", (e) => { currentSearch = e.target.value; renderTable(); });
     document.querySelectorAll("th[data-sort]").forEach(th => {
         th.addEventListener("click", () => {
@@ -462,12 +403,10 @@ function initAdminEvents() {
         });
     });
 
-    // Modals
-    document.getElementById("addBtn").addEventListener("click", () => openModal());
+    document.getElementById("addBtn").addEventListener("click", () => window.editProduct(null));
     document.getElementById("cancelBtn").addEventListener("click", closeModal);
     document.getElementById("productForm").addEventListener("submit", saveProduct);
 
-    // Kiosk Generator
     const locSelect = document.getElementById("kioskLocationSelect");
     LOCATIONS.forEach(l => {
         const opt = document.createElement("option"); opt.value = l; opt.innerText = l;
@@ -476,7 +415,6 @@ function initAdminEvents() {
 
     document.getElementById("generateKioskBtn").addEventListener("click", () => {
         const loc = encodeURIComponent(locSelect.value);
-        // Safely get base URL regardless of file:// or http:// protocol
         const baseUrl = window.location.href.split('?')[0];
         const url = `${baseUrl}?mode=kiosk&location=${loc}`;
         
@@ -487,31 +425,18 @@ function initAdminEvents() {
         openBtn.classList.remove("hidden");
         openBtn.onclick = () => window.open(url, "_blank");
 
-        // Generate Visual QR Code via API
         const qrImg = document.getElementById("qrCodeImg");
         const qrContainer = document.getElementById("qrCodeContainer");
         qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}`;
         qrContainer.classList.remove("hidden");
     });
 
-    // Email Alerts
     document.getElementById("emailAlertsBtn").addEventListener("click", () => {
         const contentText = document.getElementById("poContent").value;
-        const content = encodeURIComponent(contentText);
+        const mailtoLink = `mailto:?subject=Urgent Restock Request&body=${encodeURIComponent(contentText)}`;
+        const a = document.createElement('a'); a.href = mailtoLink; a.click();
         
-        const mailtoLink = `mailto:?subject=Urgent Restock Request&body=${content}`;
-        
-        // Use a hidden anchor tag to prevent opening a blank tab
-        const a = document.createElement('a');
-        a.href = mailtoLink;
-        a.click();
-        
-        // Fallback for missing email clients
-        setTimeout(() => {
-            navigator.clipboard.writeText(contentText).then(() => {
-                console.log("Copied to clipboard as fallback");
-            });
-        }, 500);
+        setTimeout(() => { navigator.clipboard.writeText(contentText).then(() => { console.log("Copied to clipboard as fallback"); }); }, 500);
     });
 
     document.getElementById("copyPoBtn").addEventListener("click", () => {
@@ -519,20 +444,11 @@ function initAdminEvents() {
         navigator.clipboard.writeText(content).then(() => {
             const btn = document.getElementById("copyPoBtn");
             const originalText = btn.innerText;
-            btn.innerText = "Copied!";
-            btn.style.backgroundColor = "var(--success-color)";
-            btn.style.color = "#fff";
-            setTimeout(() => {
-                btn.innerText = originalText;
-                btn.style.backgroundColor = "";
-                btn.style.color = "";
-            }, 1500);
-        }).catch(err => {
-            alert("Failed to copy text. Please try manually selecting and copying.");
-        });
+            btn.innerText = "Copied!"; btn.style.backgroundColor = "var(--success-color)"; btn.style.color = "#fff";
+            setTimeout(() => { btn.innerText = originalText; btn.style.backgroundColor = ""; btn.style.color = ""; }, 1500);
+        }).catch(err => { alert("Failed to copy text."); });
     });
 
-    // Dynamic Packaging Calc Helper
     document.getElementById("totalUnits").addEventListener("input", updatePackHelper);
     document.getElementById("packSize").addEventListener("input", updatePackHelper);
 }
@@ -548,12 +464,8 @@ function updatePackHelper() {
 function populateLocationDropdowns() {
     const select = document.getElementById("location");
     select.innerHTML = "";
-    LOCATIONS.forEach(l => {
-        const opt = document.createElement("option"); opt.value = l; opt.innerText = l;
-        select.appendChild(opt);
-    });
+    LOCATIONS.forEach(l => { const opt = document.createElement("option"); opt.value = l; opt.innerText = l; select.appendChild(opt); });
     
-    // Populate Use Case Datalist
     const datalist = document.getElementById("useCaseOptions");
     if(datalist) {
         const useCases = [...new Set(inventory.map(i => i.useCase).filter(s => s))];
@@ -561,8 +473,7 @@ function populateLocationDropdowns() {
     }
 }
 
-// Admin Modal Logic
-function openModal(id = null) {
+window.editProduct = function(id = null) {
     const form = document.getElementById("productForm");
     form.reset();
     document.getElementById("productId").value = "";
@@ -585,20 +496,18 @@ function openModal(id = null) {
             document.getElementById("parLevel").value = item.parLevel;
             document.getElementById("expiryDate").value = item.expiryDate || "";
         }
-    } else {
-        document.getElementById("modalTitle").innerText = "Add New Product";
-    }
+    } else { document.getElementById("modalTitle").innerText = "Add New Product"; }
     updatePackHelper();
     document.getElementById("productModal").classList.remove("hidden");
 }
 
 function closeModal() { document.getElementById("productModal").classList.add("hidden"); }
 
-function saveProduct(e) {
+async function saveProduct(e) {
     e.preventDefault();
-    const id = document.getElementById("productId").value;
+    const id = document.getElementById("productId").value || generateId();
     const newItem = {
-        id: id ? id : generateId(),
+        id: id,
         itemName: document.getElementById("itemName").value,
         category: document.getElementById("category").value,
         location: document.getElementById("location").value,
@@ -613,20 +522,19 @@ function saveProduct(e) {
         expiryDate: document.getElementById("expiryDate").value,
         consumptionHistory: id ? (inventory.find(i => i.id === id)?.consumptionHistory || []) : []
     };
-    if (id) { const i = inventory.findIndex(i => i.id === id); inventory[i] = newItem; } 
-    else { inventory.push(newItem); }
-    closeModal(); saveData();
+    
+    // Save to Firebase directly
+    const docRef = doc(db, "inventory", id);
+    await setDoc(docRef, newItem);
+    closeModal();
 }
-
-window.editProduct = openModal;
 
 // --- KIOSK LOGIC (STAFF SELF-LOGGING) ---
 function initKioskEvents() {
     document.getElementById("exitKioskBtn").addEventListener("click", () => {
-        window.location.href = window.location.origin + window.location.pathname;
+        window.location.href = window.location.href.split('?')[0];
     });
     
-    // Add big floating Report button
     const fab = document.createElement("button");
     fab.className = "kiosk-fab";
     fab.innerText = "🚨 Report Empty Item";
@@ -650,49 +558,33 @@ function initKioskEvents() {
 function renderKiosk() {
     const grid = document.getElementById("kioskGrid");
     grid.innerHTML = "";
-
     const localInventory = inventory.filter(i => i.location === kioskLocation);
     
-    if (localInventory.length === 0) {
-        grid.innerHTML = "<p>No items assigned to this pantry.</p>";
-        return;
-    }
+    if (localInventory.length === 0) { grid.innerHTML = "<p>No items assigned to this pantry.</p>"; return; }
 
     localInventory.forEach(item => {
         const card = document.createElement("div");
         card.className = "kiosk-card";
-        
         const stockDisplay = formatStock(item.totalUnits, item.packSize, item.packType, item.unitName);
-        
         card.innerHTML = `
             <h3>${item.itemName}</h3>
             <div class="stock-readout">Current: <strong>${stockDisplay}</strong></div>
-            <button class="btn-take" onclick="takeItemKiosk('${item.id}', '${item.unitName}')">
-                Take 1 ${item.unitName}
-            </button>
-            <button class="text-btn" style="color:var(--warning-color);" onclick="flagDiscarded('${item.id}')">
-                Flag 1 Discarded/Expired
-            </button>
+            <button class="btn-take" onclick="window.takeItemKiosk('${item.id}')">Take 1 ${item.unitName}</button>
+            <button class="text-btn" style="color:var(--warning-color);" onclick="window.flagDiscarded('${item.id}')">Flag 1 Discarded</button>
         `;
         grid.appendChild(card);
     });
 }
 
-window.takeItemKiosk = function(id, unitName) {
-    adjustStock(id, -1, "consumed");
-    // Show visual feedback without alerts
-    const btn = event.target;
-    const origText = btn.innerText;
-    btn.innerText = "✓ Logged";
-    btn.style.background = "var(--success-color)";
-    setTimeout(() => {
-        btn.innerText = origText;
-        btn.style.background = "";
-    }, 1000);
+window.takeItemKiosk = function(id) {
+    window.adjustStock(id, -1, "consumed");
+    const btn = event.target; const origText = btn.innerText;
+    btn.innerText = "✓ Logged"; btn.style.background = "var(--success-color)";
+    setTimeout(() => { btn.innerText = origText; btn.style.background = ""; }, 1000);
 }
 
 window.flagDiscarded = function(id) {
     if(confirm("Mark 1 unit as discarded/expired? (This won't count towards normal consumption rate)")) {
-        adjustStock(id, -1, "discarded");
+        window.adjustStock(id, -1, "discarded");
     }
 }
