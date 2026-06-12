@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avivar Facility Manager</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- ADMIN VIEW -->
+    <div id="adminView" class="app-container hidden">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>AVIVAR</h1>
+                <p>Enterprise Manager</p>
+            </div>
+            <nav class="nav-menu">
+                <button class="nav-btn active" data-view="inventory">Inventory Dashboard</button>
+                <button class="nav-btn" data-view="analytics">Analytics & Spend</button>
+                <button class="nav-btn" data-view="kiosk-gen">QR Kiosk Generator</button>
+            </nav>
+            <div class="sidebar-filters" id="sidebarFilters">
+                <h3>Digital Pantries</h3>
+                <button class="filter-btn active" data-filter="All">All Locations</button>
+                <button class="filter-btn" data-filter="290 Springs Road Farm breakout area">290 Springs Farm</button>
+                <button class="filter-btn" data-filter="118 McMillan Road - bottom Farm - breakout area">118 McMillan Bottom Farm</button>
+                <button class="filter-btn" data-filter="118 McMillan road - Office - Stationary">Office Stationary</button>
+                <button class="filter-btn" data-filter="118 McMillan road - Office + Factory - Kitchen">Office/Factory Kitchen</button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="dashboard">
+            
+            <!-- INVENTORY VIEW -->
+            <div id="inventoryView" class="view-section">
+                <header class="dashboard-header">
+                    <div class="search-container">
+                        <input type="text" id="searchInput" placeholder="Search inventory... (Press '/')" class="clean-input">
+                    </div>
+                    <button id="addBtn" class="primary-btn">Add Product (Alt+N)</button>
+                </header>
+                <div class="table-container panel">
+                    <table id="inventoryTable">
+                        <thead>
+                            <tr>
+                                <th data-sort="itemName">Item Name</th>
+                                <th data-sort="location">Pantry Location</th>
+                                <th data-sort="supplier">Supplier</th>
+                                <th>Stock Level (Complex)</th>
+                                <th>Par Level (Units)</th>
+                                <th data-sort="daysRemaining">Prediction</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryBody">
+                            <!-- Rows injected via app.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ANALYTICS VIEW -->
+            <div id="analyticsView" class="view-section hidden">
+                <header class="dashboard-header">
+                    <h2>Analytics & Spend</h2>
+                </header>
+                <div class="analytics-grid">
+                    <div class="panel chart-panel">
+                        <h3>7-Day Consumption Volume</h3>
+                        <canvas id="volumeChart" width="600" height="300"></canvas>
+                    </div>
+                    <div class="panel stats-panel">
+                        <h3>Monthly Spend by Location</h3>
+                        <ul id="spendList" class="spend-list">
+                            <!-- Injected -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KIOSK GENERATOR VIEW -->
+            <div id="kioskGenView" class="view-section hidden">
+                <header class="dashboard-header">
+                    <h2>QR Kiosk Generator</h2>
+                </header>
+                <div class="panel kiosk-gen-panel">
+                    <p>Select a location to generate a locked-down Kiosk URL. Open this URL on a wall-mounted tablet or have staff scan a QR code of the link to access one-tap logging.</p>
+                    <select id="kioskLocationSelect" class="clean-input" style="max-width:400px; margin: 20px 0;">
+                        <!-- Injected -->
+                    </select>
+                    <div style="display:flex; gap:10px;">
+                        <button id="generateKioskBtn" class="primary-btn">Generate Kiosk Link</button>
+                        <button id="openKioskBtn" class="secondary-btn hidden" target="_blank">Open Kiosk Now</button>
+                    </div>
+                    <textarea id="kioskUrlOutput" class="clean-input hidden" rows="2" readonly style="margin-top:20px; width:100%;"></textarea>
+                    
+                    <div id="qrCodeContainer" class="hidden" style="margin-top: 24px; text-align: center; border-top: 1px solid var(--panel-border); padding-top: 20px;">
+                        <p style="margin-bottom: 12px; font-weight: 600; color: var(--accent-color);">Scan with Mobile Device:</p>
+                        <img id="qrCodeImg" src="" alt="QR Code" style="border-radius: 8px; box-shadow: var(--shadow-sm); border: 1px solid var(--panel-border); padding: 10px; background: #fff;">
+                        <div style="background: var(--hover-bg); padding: 12px; border-radius: 8px; margin-top: 16px;">
+                            <p style="font-size: 0.85rem; color: var(--danger-color); font-weight: 600; margin-bottom: 4px;">⚠️ Network Note for Mobile Scanning</p>
+                            <p style="font-size: 0.8rem; color: var(--text-secondary);">If this app is running locally (file://...) on this computer, phones cannot scan the QR code because they do not share your laptop's hard drive. To use mobile scanning, you must host this folder on a web server (like Vercel, Netlify, or a local network server). Otherwise, use the 'Open Kiosk Now' button to run it directly on this laptop.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Action Panel -->
+        <aside class="action-panel panel">
+            <h2>Action Panel</h2>
+            <div class="po-section">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3>Odoo PO Generator</h3>
+                    <button id="emailAlertsBtn" class="text-btn">✉ Email</button>
+                </div>
+                <div class="po-tabs" id="poTabs">
+                    <!-- Tabs -->
+                </div>
+                <div class="po-content-container">
+                    <textarea id="poContent" class="clean-input" rows="8" readonly></textarea>
+                    <button id="copyPoBtn" class="secondary-btn">Copy to Odoo</button>
+                </div>
+            </div>
+            <div class="shopping-list-section">
+                <h3>Action Required</h3>
+                <ul id="flaggedItemsList" class="flagged-list">
+                    <!-- Flagged items -->
+                </ul>
+            </div>
+        </aside>
+    </div>
+
+    <!-- KIOSK VIEW -->
+    <div id="kioskView" class="kiosk-container hidden">
+        <header class="kiosk-header">
+            <h1 id="kioskLocationTitle">Location Name</h1>
+            <p>Self-Service Logging</p>
+            <button id="exitKioskBtn" class="text-btn">Exit</button>
+        </header>
+        <div class="kiosk-grid" id="kioskGrid">
+            <!-- Cards injected via app.js -->
+        </div>
+    </div>
+
+    <!-- Add/Edit Product Modal (Admin Only) -->
+    <div id="productModal" class="modal-overlay hidden">
+        <div class="modal-content panel">
+            <h2 id="modalTitle">Add New Product</h2>
+            <form id="productForm">
+                <input type="hidden" id="productId">
+                <div class="form-group">
+                    <label for="itemName">Item Name</label>
+                    <input type="text" id="itemName" class="clean-input" required>
+                </div>
+                <div class="form-group-row">
+                    <div class="form-group">
+                        <label for="category">Category</label>
+                        <select id="category" class="clean-input">
+                            <option value="Stationary">Stationary</option>
+                            <option value="Kitchen">Kitchen</option>
+                            <option value="Farm">Farm Breakroom</option>
+                            <option value="Seasonal">Seasonal</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="location">Digital Pantry</label>
+                        <select id="location" class="clean-input" required>
+                            <!-- Injected -->
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group-row">
+                    <div class="form-group">
+                        <label for="supplier">Supplier</label>
+                        <input type="text" id="supplier" class="clean-input" list="supplierOptions" required>
+                        <datalist id="supplierOptions"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="cost">Cost per Base Unit ($)</label>
+                        <input type="number" step="0.01" id="cost" class="clean-input" required>
+                    </div>
+                </div>
+                
+                <div class="form-group-row">
+                    <div class="form-group">
+                        <label for="useCase">Use Case / Parent Device (Optional)</label>
+                        <input type="text" id="useCase" class="clean-input" placeholder="e.g. HP Color Printer 9130e" list="useCaseOptions">
+                        <datalist id="useCaseOptions"></datalist>
+                    </div>
+                </div>
+
+                <div class="complex-packaging-box">
+                    <h4>Complex Packaging Settings</h4>
+                    <p class="help-text">How does this item come packaged vs. how it's consumed?</p>
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label for="packName">Pack Type (e.g. Box, Case)</label>
+                            <input type="text" id="packName" class="clean-input" value="Pack" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="packSize">Units per Pack (e.g. 24)</label>
+                            <input type="number" id="packSize" class="clean-input" value="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="unitName">Base Unit (e.g. Roll, Cartridge)</label>
+                            <input type="text" id="unitName" class="clean-input" value="Unit" required>
+                        </div>
+                    </div>
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label for="totalUnits">Current Stock (Absolute Total Units)</label>
+                            <input type="number" id="totalUnits" class="clean-input" required>
+                            <small id="stockCalcHelper">Calculates to: 0 Packs</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="parLevel">Par Level (Absolute Total Units)</label>
+                            <input type="number" id="parLevel" class="clean-input" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group-row">
+                    <div class="form-group">
+                        <label for="expiryDate">Expiry Date (Optional)</label>
+                        <input type="date" id="expiryDate" class="clean-input">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="cancelBtn" class="secondary-btn">Cancel</button>
+                    <button type="submit" class="primary-btn">Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Anonymous "Report Empty" Modal (Kiosk Only) -->
+    <div id="reportEmptyModal" class="modal-overlay hidden">
+        <div class="modal-content panel" style="max-width:400px; text-align:center;">
+            <h2>Report Missing Item</h2>
+            <p style="margin-bottom:20px;">What item is completely out of stock?</p>
+            <textarea id="reportNotes" class="clean-input" rows="3" placeholder="e.g. We need more sugar..."></textarea>
+            <div class="form-actions" style="justify-content:center; margin-top:20px;">
+                <button id="cancelReportBtn" class="secondary-btn">Cancel</button>
+                <button id="submitReportBtn" class="primary-btn" style="background:var(--danger-color)">Submit Report</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
