@@ -327,7 +327,7 @@ function renderAdmin() {
 }
 
 function renderActionPanel() {
-    const list = document.getElementById("actionList");
+    const list = document.getElementById("flaggedItemsList");
     if (!list) return;
     list.innerHTML = "";
     
