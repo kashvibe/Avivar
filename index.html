@@ -53,8 +53,14 @@
                     <div class="search-container">
                         <input type="text" id="searchInput" placeholder="Search inventory... (Press '/')" class="clean-input">
                     </div>
-                    <button id="addBtn" class="primary-btn">Add Product (Alt+N)</button>
+                    <div class="toolbar">
+                        <button id="addBtn" class="primary-btn">Add Product (Alt+N)</button>
+                        <button id="exportCsvBtn" class="secondary-btn">Export CSV</button>
+                    </div>
                 </header>
+                <div id="kpiBar" class="kpi-bar">
+                    <!-- KPI cards injected by app.js -->
+                </div>
                 <div class="table-container panel">
                     <table id="inventoryTable">
                         <thead>
@@ -268,6 +274,23 @@
             <div class="form-actions" style="justify-content:center;">
                 <button id="cancelReportBtn" class="secondary-btn">Cancel</button>
                 <button id="submitReportBtn" class="primary-btn" style="background:var(--danger-color);">Submit Report</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESTOCK MODAL -->
+    <div id="restockModal" class="modal-overlay hidden">
+        <div class="modal-content panel" style="max-width:420px;">
+            <h2 id="restockTitle">Restock Item</h2>
+            <div class="restock-info" id="restockInfo"></div>
+            <div class="restock-input">
+                <label style="font-weight:600;">Add Packs:</label>
+                <input type="number" id="restockQty" class="clean-input" value="1" min="1">
+            </div>
+            <p id="restockCalc" style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:16px;"></p>
+            <div class="form-actions">
+                <button id="cancelRestockBtn" class="secondary-btn">Cancel</button>
+                <button id="confirmRestockBtn" class="primary-btn">Confirm Restock</button>
             </div>
         </div>
     </div>

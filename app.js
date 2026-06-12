@@ -237,13 +237,81 @@ window.adjustStock = async function(id, change, reason = "consumed") {
         });
     }
     
-    // Push update directly to cloud. onSnapshot will automatically re-render the UI on all devices!
     const docRef = doc(db, "inventory", id);
     await setDoc(docRef, {
         totalUnits: newStock,
         consumptionHistory: newHistory
     }, { merge: true });
 };
+
+window.resolveReport = function(id) {
+    showConfirm("Resolve Report?", "Mark this issue as resolved and remove it from the dashboard?", async () => {
+        try {
+            await deleteDoc(doc(db, "reports", id));
+            showToast("Report resolved.", "success");
+        } catch (err) {
+            showToast("Error resolving report.", "error");
+        }
+    });
+};
+
+window.deleteProduct = function(id) {
+    const item = inventory.find(i => i.id === id);
+    if (!item) return;
+    showConfirm("Delete Product?", `Permanently remove "${item.itemName}" from inventory? This cannot be undone.`, async () => {
+        try {
+            await deleteDoc(doc(db, "inventory", id));
+            showToast(`"${item.itemName}" deleted.`, "success");
+        } catch (err) {
+            showToast("Error deleting product.", "error");
+        }
+    });
+};
+
+window.restockProduct = function(id) {
+    const item = inventory.find(i => i.id === id);
+    if (!item) return;
+    const modal = document.getElementById("restockModal");
+    document.getElementById("restockTitle").innerText = `Restock: ${item.itemName}`;
+    document.getElementById("restockInfo").innerHTML = `Current Stock: <strong>${item.totalUnits} ${item.unitName}(s)</strong><br>Pack Size: ${item.packSize} ${item.unitName}(s) per ${item.packType}`;
+    const qtyInput = document.getElementById("restockQty");
+    qtyInput.value = 1;
+    const calcEl = document.getElementById("restockCalc");
+    const updateCalc = () => {
+        const packs = parseInt(qtyInput.value) || 0;
+        const units = packs * parseInt(item.packSize);
+        calcEl.innerText = `Adding ${packs} ${item.packType}(s) = +${units} ${item.unitName}(s). New total: ${parseInt(item.totalUnits) + units}`;
+    };
+    updateCalc();
+    qtyInput.oninput = updateCalc;
+    modal.classList.remove("hidden");
+    
+    document.getElementById("cancelRestockBtn").onclick = () => modal.classList.add("hidden");
+    document.getElementById("confirmRestockBtn").onclick = async () => {
+        const packs = parseInt(qtyInput.value) || 0;
+        if (packs <= 0) return;
+        const unitsToAdd = packs * parseInt(item.packSize);
+        await window.adjustStock(id, unitsToAdd, "restocked");
+        modal.classList.add("hidden");
+        showToast(`Restocked ${unitsToAdd} ${item.unitName}(s).`, "success");
+    };
+};
+
+function exportCSV() {
+    const headers = ["Item Name","Category","Location","Supplier","Cost","Pack Type","Pack Size","Unit Name","Total Units","Par Level","Use Case","Expiry Date"];
+    const rows = inventory.map(i => [
+        `"${i.itemName}"`, i.category, `"${i.location}"`, i.supplier, i.cost,
+        i.packType, i.packSize, i.unitName, i.totalUnits, i.parLevel,
+        `"${i.useCase || ''}"`, i.expiryDate || ""
+    ]);
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `avivar_inventory_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast("CSV exported.", "success");
+}
 
 // --- ADMIN RENDER LOGIC ---
 function renderAdmin() {
@@ -316,15 +384,47 @@ function renderAdmin() {
             <td>
                 <div class="action-btns">
                     <button class="secondary-btn" onclick="adjustStock('${item.id}', 1)">+</button>
-                    <button class="secondary-btn" onclick="adjustStock('${item.id}', -1)">−</button>
+                    <button class="secondary-btn" onclick="adjustStock('${item.id}', -1)">-</button>
+                    <button class="text-btn" onclick="restockProduct('${item.id}')">Restock</button>
                     <button class="text-btn" onclick="editProduct('${item.id}')">Edit</button>
+                    <button class="text-btn" style="color:var(--danger-color)" onclick="deleteProduct('${item.id}')">Del</button>
                 </div>
             </td>
         `;
         tbody.appendChild(tr);
     });
     
+    renderKPIs();
     renderActionPanel();
+}
+
+function renderKPIs() {
+    const bar = document.getElementById("kpiBar");
+    if (!bar) return;
+    
+    const totalItems = inventory.length;
+    const totalValue = inventory.reduce((sum, i) => sum + (parseInt(i.totalUnits) * parseFloat(i.cost)), 0);
+    const lowStock = inventory.filter(i => parseInt(i.totalUnits) <= parseInt(i.parLevel)).length;
+    const reportCount = activeReports.length;
+    
+    bar.innerHTML = `
+        <div class="kpi-card">
+            <div class="kpi-value">${totalItems}</div>
+            <div class="kpi-label">Products Tracked</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-value">$${totalValue.toFixed(0)}</div>
+            <div class="kpi-label">Inventory Value</div>
+        </div>
+        <div class="kpi-card ${lowStock > 0 ? 'warning' : 'success'}">
+            <div class="kpi-value">${lowStock}</div>
+            <div class="kpi-label">Low Stock Alerts</div>
+        </div>
+        <div class="kpi-card ${reportCount > 0 ? 'danger' : 'success'}">
+            <div class="kpi-value">${reportCount}</div>
+            <div class="kpi-label">Active Reports</div>
+        </div>
+    `;
 }
 
 function renderActionPanel() {
@@ -377,6 +477,34 @@ function renderActionPanel() {
     if (!hasStockAlerts) {
         stockList.innerHTML = `<li class="flagged-item" style="border:none; justify-content:center; color:var(--text-secondary);">All stock levels are nominal.</li>`;
     }
+
+    // 3. Render Expiry Alerts
+    const now = new Date();
+    inventory.forEach(item => {
+        if (!item.expiryDate) return;
+        const diffDays = Math.ceil((new Date(item.expiryDate) - now) / 86400000);
+        if (diffDays <= 14 && diffDays >= 0) {
+            const li = document.createElement("li");
+            li.className = "flagged-item warning";
+            li.innerHTML = `
+                <div class="flagged-info">
+                    <span class="flagged-item-name">${item.itemName}</span>
+                    <span class="flagged-item-details">Expires in ${diffDays} day(s) - ${item.expiryDate}</span>
+                </div>
+            `;
+            stockList.appendChild(li);
+        } else if (diffDays < 0) {
+            const li = document.createElement("li");
+            li.className = "flagged-item danger";
+            li.innerHTML = `
+                <div class="flagged-info">
+                    <span class="flagged-item-name">${item.itemName}</span>
+                    <span class="flagged-item-details">EXPIRED ${Math.abs(diffDays)} day(s) ago!</span>
+                </div>
+            `;
+            stockList.appendChild(li);
+        }
+    });
 
     // PO Logic
     const poData = {};
@@ -540,6 +668,17 @@ function initAdminEvents() {
 
     document.getElementById("totalUnits").addEventListener("input", updatePackHelper);
     document.getElementById("packSize").addEventListener("input", updatePackHelper);
+
+    // CSV Export
+    document.getElementById("exportCsvBtn").addEventListener("click", exportCSV);
+
+    // Keyboard Shortcuts
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "/" && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
+            e.preventDefault(); document.getElementById("searchInput").focus();
+        }
+        if (e.altKey && e.key === "n") { e.preventDefault(); window.editProduct(null); }
+    });
 }
 
 function updatePackHelper() {

@@ -638,3 +638,78 @@ textarea {
 .confirm-modal-content h3 { margin-bottom: 12px; font-size: 1.3rem; }
 .confirm-modal-content p { color: var(--text-secondary); margin-bottom: 24px; line-height: 1.5; }
 .confirm-actions { display: flex; gap: 12px; justify-content: center; }
+
+/* ------------- KPI SUMMARY CARDS ------------- */
+.kpi-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.kpi-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.15s ease;
+}
+.kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.kpi-value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--accent-color);
+    line-height: 1;
+    margin-bottom: 6px;
+}
+.kpi-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+.kpi-card.danger .kpi-value { color: var(--danger-color); }
+.kpi-card.warning .kpi-value { color: var(--warning-color); }
+.kpi-card.success .kpi-value { color: var(--success-color); }
+
+/* ------------- TOOLBAR BUTTONS ------------- */
+.toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* ------------- RESTOCK MODAL ------------- */
+.restock-input {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin: 16px 0;
+}
+.restock-input input {
+    width: 100px;
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+.restock-info {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* ------------- EXPIRY BADGE ------------- */
+.badge-expiry { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+
+/* ------------- RESPONSIVE MOBILE ------------- */
+@media (max-width: 1024px) {
+    .app-container {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    .sidebar { display: none; }
+    .action-panel { display: none; }
+    .kpi-bar { grid-template-columns: repeat(2, 1fr); }
+}
