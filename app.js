@@ -389,17 +389,17 @@ function initAdminEvents() {
             document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
             e.currentTarget.classList.add("active");
             currentFilter = e.currentTarget.dataset.filter;
-            renderTable();
+            renderAdmin();
         });
     });
 
-    document.getElementById("searchInput").addEventListener("input", (e) => { currentSearch = e.target.value; renderTable(); });
+    document.getElementById("searchInput").addEventListener("input", (e) => { currentSearch = e.target.value; renderAdmin(); });
     document.querySelectorAll("th[data-sort]").forEach(th => {
         th.addEventListener("click", () => {
             const col = th.dataset.sort;
             if (sortColumn === col) sortAsc = !sortAsc;
             else { sortColumn = col; sortAsc = true; }
-            renderTable();
+            renderAdmin();
         });
     });
 
