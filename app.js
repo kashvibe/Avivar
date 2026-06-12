@@ -102,11 +102,11 @@ function checkAdminPin() {
 
 // Seed Data for initial migration
 const seedData = [
-    { id: "1", itemName: "HP Officejet Pro 9130e Cartridge Black", category: "Stationary", location: LOCATIONS[2], supplier: "O'Donnells", cost: 45.00, packType: "Pack", packSize: 4, unitName: "Cartridge", totalUnits: 6, parLevel: 2, useCase: "HP Color Printer 9130e", consumptionHistory: [], expiryDate: "" },
-    { id: "2", itemName: "Coles 3-ply Toilet Paper", category: "Washroom", location: LOCATIONS[1], supplier: "Coles", cost: 0.85, packType: "Box", packSize: 48, unitName: "Roll", totalUnits: 100, parLevel: 20, useCase: "", consumptionHistory: [], expiryDate: "" },
-    { id: "3", itemName: "Long Life Milk 1L", category: "Kitchen", location: LOCATIONS[3], supplier: "Coles", cost: 1.65, packType: "Carton", packSize: 12, unitName: "Litre", totalUnits: 15, parLevel: 5, useCase: "", consumptionHistory: [], expiryDate: getFutureDate(12) },
-    { id: "4", itemName: "Nescafé Blend 43 Coffee", category: "Kitchen", location: LOCATIONS[3], supplier: "Coles", cost: 14.50, packType: "Tin", packSize: 1, unitName: "Tin", totalUnits: 2, parLevel: 1, useCase: "", consumptionHistory: [], expiryDate: "" },
-    { id: "5", itemName: "Work Gloves", category: "Farm", location: LOCATIONS[0], supplier: "Bunnings", cost: 5.00, packType: "Pack", packSize: 10, unitName: "Pair", totalUnits: 35, parLevel: 10, useCase: "", consumptionHistory: [], expiryDate: "" }
+    { id: "1", itemName: "HP Officejet Pro 9130e Cartridge Black", category: "Stationary", location: appSettings.locations[2], supplier: "O'Donnells", cost: 45.00, packType: "Pack", packSize: 4, unitName: "Cartridge", totalUnits: 6, parLevel: 2, useCase: "HP Color Printer 9130e", consumptionHistory: [], expiryDate: "" },
+    { id: "2", itemName: "Coles 3-ply Toilet Paper", category: "Washroom", location: appSettings.locations[1], supplier: "Coles", cost: 0.85, packType: "Box", packSize: 48, unitName: "Roll", totalUnits: 100, parLevel: 20, useCase: "", consumptionHistory: [], expiryDate: "" },
+    { id: "3", itemName: "Long Life Milk 1L", category: "Kitchen", location: appSettings.locations[3], supplier: "Coles", cost: 1.65, packType: "Carton", packSize: 12, unitName: "Litre", totalUnits: 15, parLevel: 5, useCase: "", consumptionHistory: [], expiryDate: getFutureDate(12) },
+    { id: "4", itemName: "Nescafé Blend 43 Coffee", category: "Kitchen", location: appSettings.locations[3], supplier: "Coles", cost: 14.50, packType: "Tin", packSize: 1, unitName: "Tin", totalUnits: 2, parLevel: 1, useCase: "", consumptionHistory: [], expiryDate: "" },
+    { id: "5", itemName: "Work Gloves", category: "Farm", location: appSettings.locations[0], supplier: "Bunnings", cost: 5.00, packType: "Pack", packSize: 10, unitName: "Pair", totalUnits: 35, parLevel: 10, useCase: "", consumptionHistory: [], expiryDate: "" }
 ];
 
 let inventory = [];
