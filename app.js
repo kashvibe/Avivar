@@ -377,18 +377,18 @@ function initAdminEvents() {
     document.querySelectorAll(".nav-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
             document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
-            e.target.classList.add("active");
+            e.currentTarget.classList.add("active");
             document.querySelectorAll(".view-section").forEach(v => v.classList.add("hidden"));
-            document.getElementById(`${e.target.dataset.view}View`).classList.remove("hidden");
-            if (e.target.dataset.view === 'analytics') drawAnalytics();
+            document.getElementById(`${e.currentTarget.dataset.view}View`).classList.remove("hidden");
+            if (e.currentTarget.dataset.view === 'analytics') drawAnalytics();
         });
     });
 
     document.querySelectorAll(".filter-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
             document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
-            e.target.classList.add("active");
-            currentFilter = e.target.dataset.filter;
+            e.currentTarget.classList.add("active");
+            currentFilter = e.currentTarget.dataset.filter;
             renderTable();
         });
     });
