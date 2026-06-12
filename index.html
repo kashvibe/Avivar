@@ -138,12 +138,19 @@
                     <button id="copyPoBtn" class="secondary-btn">Copy to Odoo</button>
                 </div>
             </div>
-            <div class="action-required-section" style="margin-top:20px;">
-                <h3>Action Required & Reports</h3>
-                <ul id="flaggedItemsList" class="flagged-list">
-                    <!-- Flagged items -->
-                </ul>
-            </div>
+              <div class="reports-section" style="margin-top:20px; border-bottom: 1px solid #eee; padding-bottom:15px;">
+                  <h3 style="color:var(--danger-color);">🚨 Emergency Reports</h3>
+                  <ul id="emergencyReportsList" class="flagged-list">
+                      <!-- Active reports will appear here -->
+                  </ul>
+              </div>
+
+              <div class="action-required-section" style="margin-top:20px;">
+                  <h3>Low Stock Alerts</h3>
+                  <ul id="flaggedItemsList" class="flagged-list">
+                      <!-- Flagged items -->
+                  </ul>
+              </div>
         </aside>
     </div>
 

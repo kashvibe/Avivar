@@ -327,32 +327,40 @@ function renderAdmin() {
 }
 
 function renderActionPanel() {
-    const list = document.getElementById("flaggedItemsList");
-    if (!list) return;
-    list.innerHTML = "";
+    const stockList = document.getElementById("flaggedItemsList");
+    const reportsList = document.getElementById("emergencyReportsList");
+    if (!stockList || !reportsList) return;
     
-    let hasActions = false;
+    stockList.innerHTML = "";
+    reportsList.innerHTML = "";
+    
+    let hasStockAlerts = false;
+    let hasReports = false;
 
-    // 1. Render Active Reports (Highest Priority)
+    // 1. Render Active Reports
     activeReports.sort((a, b) => b.timestamp - a.timestamp).forEach(report => {
-        hasActions = true;
+        hasReports = true;
         const li = document.createElement("li");
         li.className = "flagged-item danger";
         li.innerHTML = `
             <div class="flagged-info">
-                <span class="flagged-item-name">[URGENT] Empty Pantry Report</span>
+                <span class="flagged-item-name">[URGENT] Pantry Empty</span>
                 <span class="flagged-item-details">${report.location}</span>
                 <span class="flagged-item-details" style="font-weight:500;">"${report.note}"</span>
             </div>
             <button class="btn-purchase" onclick="resolveReport('${report.id}')">Resolve</button>
         `;
-        list.appendChild(li);
+        reportsList.appendChild(li);
     });
+
+    if (!hasReports) {
+        reportsList.innerHTML = `<li class="flagged-item" style="border:none; justify-content:center; color:var(--text-secondary);">All clear. No active reports.</li>`;
+    }
 
     // 2. Render Low Stock Items
     let flagged = inventory.filter(i => parseInt(i.totalUnits) <= parseInt(i.parLevel));
     flagged.forEach(item => {
-        hasActions = true;
+        hasStockAlerts = true;
         const li = document.createElement("li");
         li.className = "flagged-item warning";
         li.innerHTML = `
@@ -362,10 +370,12 @@ function renderActionPanel() {
                 <span class="flagged-item-details">${item.location}</span>
             </div>
         `;
-        list.appendChild(li);
+        stockList.appendChild(li);
     });
 
-    if (!hasActions) list.innerHTML = `<li class="flagged-item" style="border:none; justify-content:center; color:var(--text-secondary);">All clear. No actions required.</li>`;
+    if (!hasStockAlerts) {
+        stockList.innerHTML = `<li class="flagged-item" style="border:none; justify-content:center; color:var(--text-secondary);">All stock levels are nominal.</li>`;
+    }
 
     // PO Logic
     const poData = {};
@@ -615,7 +625,7 @@ function initKioskEvents() {
     
     const fab = document.createElement("button");
     fab.className = "kiosk-fab";
-    fab.innerText = "🚨 Report Empty Item";
+    fab.innerText = "Report Empty Item";
     fab.onclick = () => document.getElementById("reportEmptyModal").classList.remove("hidden");
     document.body.appendChild(fab);
 
