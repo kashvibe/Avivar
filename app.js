@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, doc, setDoc, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, onSnapshot, writeBatch, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // --- Firebase Configuration ---
 const firebaseConfig = {
@@ -179,27 +179,27 @@ function calculateDaysRemaining(item) {
 
 // --- FIREBASE DATA ENGINE ---
 function loadData() {
-    const invCol = collection(db, "inventory");
-    
-    // Live Cloud Sync
-    onSnapshot(invCol, (snapshot) => {
-        const data = [];
-        snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+    onSnapshot(collection(db, "inventory"), (snapshot) => {
+        inventory = [];
+        snapshot.forEach(doc => inventory.push({ id: doc.id, ...doc.data() }));
         
-        if (data.length === 0) {
-            // Cloud is empty. Migrate local data upwards.
-            migrateLocalToFirebase();
-        } else {
-            inventory = data;
-            if (appMode === 'admin') { renderAdmin(); drawAnalytics(); }
-            if (appMode === 'kiosk') renderKiosk();
-        }
+        if (inventory.length === 0 && appMode === 'admin') migrateLocalToFirebase();
+        else if (appMode === 'admin') { renderAdmin(); drawAnalytics(); renderActionPanel(); }
+        else if (appMode === 'kiosk') renderKiosk();
     }, (error) => {
         console.error("Firestore sync error:", error);
         if (error.code === 'permission-denied') {
             showToast("Database Permission Denied. Check Firebase rules.", "error");
         }
     });
+
+    if (appMode === 'admin') {
+        onSnapshot(collection(db, "reports"), (snapshot) => {
+            activeReports = [];
+            snapshot.forEach(doc => activeReports.push({ id: doc.id, ...doc.data() }));
+            renderActionPanel();
+        });
+    }
 }
 
 async function migrateLocalToFirebase() {
@@ -327,51 +327,57 @@ function renderAdmin() {
 }
 
 function renderActionPanel() {
-    const list = document.getElementById("flaggedItemsList");
+    const list = document.getElementById("actionList");
+    if (!list) return;
     list.innerHTML = "";
     
-    const now = new Date();
-    const poData = {};
+    let hasActions = false;
 
-    inventory.forEach(item => {
-        let isFlagged = false; let reasons = []; let type = "info";
-
-        if (item._daysRemaining !== null && item._daysRemaining < 5) {
-            isFlagged = true;
-            reasons.push(`Runs out in ~${Math.round(item._daysRemaining)} days`);
-            type = item._daysRemaining < 2 ? "danger" : "warning";
-        } else if (parseInt(item.totalUnits) <= parseInt(item.parLevel)) {
-            isFlagged = true; reasons.push(`Hit Par Level`); type = "danger";
-        }
-
-        if (item.expiryDate) {
-            const diffDays = Math.ceil((new Date(item.expiryDate) - now) / 86400000);
-            if (diffDays <= 7 && diffDays >= 0) {
-                isFlagged = true; reasons.push(`Expiring in ${diffDays}d`); type = "warning";
-            }
-        }
-
-        if (isFlagged) {
-            if (item.supplier && (type === 'danger' || type === 'warning')) {
-                if (!poData[item.supplier]) poData[item.supplier] = [];
-                const targetUnits = Math.max(parseInt(item.parLevel) * 2, parseInt(item.packSize));
-                const unitsNeeded = Math.max(1, targetUnits - parseInt(item.totalUnits));
-                const packsToOrder = Math.ceil(unitsNeeded / (parseInt(item.packSize) || 1));
-                poData[item.supplier].push(`${packsToOrder}x ${item.packType} of ${item.itemName}`);
-            }
-
-            const li = document.createElement("li");
-            li.className = `flagged-item ${type}`;
-            li.innerHTML = `
-                <div class="flagged-info">
-                    <div class="flagged-item-name">${item.itemName}</div>
-                    <div class="flagged-item-details">${reasons.join(', ')}</div>
-                </div>
-            `;
-            list.appendChild(li);
-        }
+    // 1. Render Active Reports (Highest Priority)
+    activeReports.sort((a, b) => b.timestamp - a.timestamp).forEach(report => {
+        hasActions = true;
+        const li = document.createElement("li");
+        li.className = "flagged-item danger";
+        li.innerHTML = `
+            <div class="flagged-info">
+                <span class="flagged-item-name">[URGENT] Empty Pantry Report</span>
+                <span class="flagged-item-details">${report.location}</span>
+                <span class="flagged-item-details" style="font-weight:500;">"${report.note}"</span>
+            </div>
+            <button class="btn-purchase" onclick="resolveReport('${report.id}')">Resolve</button>
+        `;
+        list.appendChild(li);
     });
 
+    // 2. Render Low Stock Items
+    let flagged = inventory.filter(i => parseInt(i.totalUnits) <= parseInt(i.parLevel));
+    flagged.forEach(item => {
+        hasActions = true;
+        const li = document.createElement("li");
+        li.className = "flagged-item warning";
+        li.innerHTML = `
+            <div class="flagged-info">
+                <span class="flagged-item-name">${item.itemName}</span>
+                <span class="flagged-item-details">Stock: ${item.totalUnits} / Par: ${item.parLevel}</span>
+                <span class="flagged-item-details">${item.location}</span>
+            </div>
+        `;
+        list.appendChild(li);
+    });
+
+    if (!hasActions) list.innerHTML = `<li class="flagged-item" style="border:none; justify-content:center; color:var(--text-secondary);">All clear. No actions required.</li>`;
+
+    // PO Logic
+    const poData = {};
+    inventory.forEach(item => {
+        if (item.supplier && parseInt(item.totalUnits) <= parseInt(item.parLevel)) {
+            if (!poData[item.supplier]) poData[item.supplier] = [];
+            const targetUnits = Math.max(parseInt(item.parLevel) * 2, parseInt(item.packSize));
+            const unitsNeeded = Math.max(1, targetUnits - parseInt(item.totalUnits));
+            const packsToOrder = Math.ceil(unitsNeeded / (parseInt(item.packSize) || 1));
+            poData[item.supplier].push(`${packsToOrder}x ${item.packType} of ${item.itemName}`);
+        }
+    });
     renderPOTabs(poData);
 }
 
@@ -491,17 +497,14 @@ function initAdminEvents() {
     });
 
     document.getElementById("generateKioskBtn").addEventListener("click", () => {
-        const loc = encodeURIComponent(locSelect.value);
-        const baseUrl = window.location.href.split('?')[0];
-        const url = `${baseUrl}?mode=kiosk&location=${loc}`;
-        
-        document.getElementById("kioskUrlOutput").value = url;
-        document.getElementById("kioskUrlOutput").classList.remove("hidden");
-        
+        const loc = document.getElementById("kioskLocationSelect").value;
+        const url = window.location.href.split('?')[0] + "?mode=kiosk&location=" + encodeURIComponent(loc);
+        const out = document.getElementById("kioskUrlOutput");
+        out.value = url;
+        out.classList.remove("hidden");
         const openBtn = document.getElementById("openKioskBtn");
+        openBtn.onclick = () => window.open(url, '_blank');
         openBtn.classList.remove("hidden");
-        openBtn.onclick = () => window.open(url, "_blank");
-
         const qrImg = document.getElementById("qrCodeImg");
         const qrContainer = document.getElementById("qrCodeContainer");
         qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}`;
@@ -509,11 +512,9 @@ function initAdminEvents() {
     });
 
     document.getElementById("emailAlertsBtn").addEventListener("click", () => {
-        const contentText = document.getElementById("poContent").value;
-        const mailtoLink = `mailto:?subject=Urgent Restock Request&body=${encodeURIComponent(contentText)}`;
-        const a = document.createElement('a'); a.href = mailtoLink; a.click();
-        
-        setTimeout(() => { navigator.clipboard.writeText(contentText).then(() => { console.log("Copied to clipboard as fallback"); }); }, 500);
+        const text = document.getElementById("poContent").value;
+        showToast("Opening Email Client...", "info");
+        window.open(`mailto:?subject=Avivar Purchase Order&body=${encodeURIComponent(text)}`, '_blank');
     });
 
     document.getElementById("copyPoBtn").addEventListener("click", () => {
@@ -622,12 +623,21 @@ function initKioskEvents() {
         document.getElementById("reportEmptyModal").classList.add("hidden");
     });
     
-    document.getElementById("submitReportBtn").addEventListener("click", () => {
+    document.getElementById("submitReportBtn").addEventListener("click", async () => {
         const note = document.getElementById("reportNotes").value;
         if(note) {
-            showToast("Report submitted.", "success");
-            document.getElementById("reportNotes").value = "";
-            document.getElementById("reportEmptyModal").classList.add("hidden");
+            try {
+                await addDoc(collection(db, "reports"), {
+                    location: kioskLocation,
+                    note: note,
+                    timestamp: Date.now()
+                });
+                showToast("Report submitted.", "success");
+                document.getElementById("reportNotes").value = "";
+                document.getElementById("reportEmptyModal").classList.add("hidden");
+            } catch (err) {
+                showToast("Failed to submit report. Connection error.", "error");
+            }
         }
     });
 }
