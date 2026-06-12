@@ -10,10 +10,23 @@
     --danger-color: #ef4444;
     --warning-color: #f59e0b;
     --hover-bg: #f1f5f9;
+    --input-bg: #ffffff;
+    --input-border: #cbd5e1;
     --font-family: 'Inter', sans-serif;
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+body.dark-mode {
+    --bg-color: #0f172a;
+    --panel-bg: #1e293b;
+    --panel-border: #334155;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --hover-bg: #334155;
+    --input-bg: #0f172a;
+    --input-border: #475569;
 }
 
 * {
@@ -42,8 +55,8 @@ body {
 }
 
 .clean-input {
-    background: #fff;
-    border: 1px solid #cbd5e1;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
     color: var(--text-primary);
     padding: 10px 14px;
     border-radius: 8px;
@@ -81,8 +94,8 @@ button {
 }
 
 .secondary-btn {
-    background: #fff;
-    border: 1px solid #cbd5e1;
+    background: var(--panel-bg);
+    border: 1px solid var(--input-border);
     color: var(--text-primary);
 }
 
@@ -209,7 +222,7 @@ button {
 .table-container {
     flex-grow: 1;
     overflow-y: auto;
-    background: #fff;
+    background: var(--panel-bg);
 }
 
 table {
@@ -332,7 +345,7 @@ tbody tr:hover {
     padding: 24px;
     gap: 24px;
     overflow-y: auto;
-    background: #fff;
+    background: var(--panel-bg);
 }
 
 .action-panel h2 {
@@ -387,8 +400,18 @@ textarea {
     gap: 12px;
 }
 
+.flagg.report-header {
+    background: var(--bg-color);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border-left: 4px solid var(--panel-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
 .flagged-item {
-    background: #f8fafc;
+    background: var(--bg-color);
     padding: 12px;
     border-radius: 8px;
     border-left: 4px solid var(--panel-border);
@@ -411,19 +434,19 @@ textarea {
 .flagged-item-details { font-size: 0.8rem; color: var(--text-secondary); }
 
 .btn-purchase {
-    background: #ecfdf5;
+    background: var(--success-light);
     color: var(--success-color);
-    border: 1px solid #a7f3d0;
+    border: 1px solid var(--success-border);
     padding: 6px 10px;
     font-size: 0.75rem;
 }
-.btn-purchase:hover { background: #d1fae5; }
+.btn-purchase:hover { background: var(--success-hover); }
 
 /* Modal */
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(15, 23, 42, 0.6);
+    background: var(--overlay-bg);
     backdrop-filter: blur(4px);
     display: flex;
     justify-content: center;
@@ -459,11 +482,16 @@ textarea {
 }
 
 .complex-packaging-box {
-    background: #f8fafc;
-    border: 1px dashed #cbd5e1;
+    background: var(--bg-color);
+    border: 1px dashed var(--panel-border);
     padding: 16px;
     border-radius: 8px;
     margin-bottom: 16px;
+}
+.complex-packaging-table th {
+    background: var(--bg-color);
+    border-bottom: 2px solid var(--panel-border);
+    color: var(--text-secondary);
 }
 .complex-packaging-box h4 { margin-bottom: 4px; font-size: 0.95rem;}
 .help-text { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px; }
@@ -480,7 +508,7 @@ textarea {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    background: linear-gradient(135deg, var(--bg-color) 0%, var(--panel-border) 100%);
 }
 
 .kiosk-header {
@@ -525,7 +553,7 @@ textarea {
 .kiosk-card .stock-readout {
     font-size: 1.15rem;
     color: var(--text-secondary);
-    background: #f1f5f9;
+    background: var(--panel-border);
     padding: 12px;
     border-radius: 12px;
     font-weight: 500;
@@ -536,11 +564,11 @@ textarea {
     font-size: 1.6rem;
     font-weight: 700;
     padding: 24px;
-    border-radius: 20px;
-    box-shadow: 0 10px 20px rgba(2, 132, 199, 0.25);
+    border-radius: 16px;
     border: none;
+    box-shadow: var(--shadow-md);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: transform 0.1s, box-shadow 0.1s;
 }
 .kiosk-card .btn-take:active { 
     transform: scale(0.95); 
@@ -577,7 +605,7 @@ textarea {
     flex-direction: column;
 }
 .pin-vault-panel {
-    background: #fff;
+    background: var(--panel-bg);
     padding: 40px;
     border-radius: 24px;
     box-shadow: var(--shadow-lg);

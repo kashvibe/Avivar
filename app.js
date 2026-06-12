@@ -117,6 +117,19 @@ let kioskLocation = "";
 document.addEventListener("DOMContentLoaded", async () => {
     initRouting();
     
+    // Theme Initialization
+    if (localStorage.getItem("avivar_theme") === "dark") {
+        document.body.classList.add("dark-mode");
+    }
+    const themeBtn = document.getElementById("themeToggleBtn");
+    if (themeBtn) {
+        themeBtn.addEventListener("click", () => {
+            document.body.classList.toggle("dark-mode");
+            const isDark = document.body.classList.contains("dark-mode");
+            localStorage.setItem("avivar_theme", isDark ? "dark" : "light");
+        });
+    }
+    
     // UI Events & Security
     if (appMode === 'admin') {
         const unlocked = await checkAdminPin();
@@ -311,6 +324,60 @@ function exportCSV() {
     a.href = url; a.download = `avivar_inventory_${new Date().toISOString().split('T')[0]}.csv`;
     a.click(); URL.revokeObjectURL(url);
     showToast("CSV exported.", "success");
+}
+
+async function handleCSVImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const text = e.target.result;
+        const lines = text.split("\n").filter(l => l.trim() !== "");
+        if (lines.length < 2) { showToast("CSV is empty or invalid.", "error"); return; }
+        
+        showToast("Importing products...", "info");
+        const batch = writeBatch(db);
+        let count = 0;
+
+        // Skip header line (index 0)
+        for (let i = 1; i < lines.length; i++) {
+            // Split by comma, but ignore commas inside double quotes
+            const row = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            if (!row || row.length < 10) continue; // Basic validation
+            
+            const cleanStr = (str) => str ? str.replace(/(^"|"$)/g, "").trim() : "";
+            
+            const id = generateId();
+            const docRef = doc(db, "inventory", id);
+            batch.set(docRef, {
+                itemName: cleanStr(row[0]),
+                category: cleanStr(row[1]),
+                location: cleanStr(row[2]),
+                supplier: cleanStr(row[3]),
+                cost: parseFloat(cleanStr(row[4])) || 0,
+                packType: cleanStr(row[5]) || "Pack",
+                packSize: parseInt(cleanStr(row[6])) || 1,
+                unitName: cleanStr(row[7]) || "Unit",
+                totalUnits: parseInt(cleanStr(row[8])) || 0,
+                parLevel: parseInt(cleanStr(row[9])) || 0,
+                useCase: row[10] ? cleanStr(row[10]) : "",
+                expiryDate: row[11] ? cleanStr(row[11]) : "",
+                consumptionHistory: []
+            });
+            count++;
+        }
+        
+        try {
+            await batch.commit();
+            showToast(`Successfully imported ${count} products!`, "success");
+        } catch (err) {
+            console.error(err);
+            showToast("Failed to import CSV.", "error");
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = ""; // Reset input
 }
 
 // --- ADMIN RENDER LOGIC ---
@@ -669,8 +736,14 @@ function initAdminEvents() {
     document.getElementById("totalUnits").addEventListener("input", updatePackHelper);
     document.getElementById("packSize").addEventListener("input", updatePackHelper);
 
-    // CSV Export
+    // CSV Export & Import
     document.getElementById("exportCsvBtn").addEventListener("click", exportCSV);
+    const importBtn = document.getElementById("importCsvBtn");
+    const fileInput = document.getElementById("csvFileInput");
+    if (importBtn && fileInput) {
+        importBtn.addEventListener("click", () => fileInput.click());
+        fileInput.addEventListener("change", handleCSVImport);
+    }
 
     // Keyboard Shortcuts
     document.addEventListener("keydown", (e) => {

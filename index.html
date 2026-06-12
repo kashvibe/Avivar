@@ -28,6 +28,7 @@
             <div class="logo">
                 <h1>AVIVAR</h1>
                 <p>Enterprise Manager</p>
+                <button id="themeToggleBtn" class="secondary-btn" style="margin-top: 12px; font-size: 0.8rem; padding: 4px 8px;">🌙 Dark Mode</button>
             </div>
             <nav class="nav-menu">
                 <button class="nav-btn active" data-view="inventory">Inventory Dashboard</button>
@@ -56,6 +57,8 @@
                     <div class="toolbar">
                         <button id="addBtn" class="primary-btn">Add Product (Alt+N)</button>
                         <button id="exportCsvBtn" class="secondary-btn">Export CSV</button>
+                        <button id="importCsvBtn" class="secondary-btn">Import CSV</button>
+                        <input type="file" id="csvFileInput" accept=".csv" class="hidden">
                     </div>
                 </header>
                 <div id="kpiBar" class="kpi-bar">
