@@ -207,7 +207,12 @@ function loadData() {
     if (appMode === 'admin') {
         onSnapshot(doc(db, "settings", "main"), (docSnap) => {
             if (docSnap.exists()) {
-                appSettings = docSnap.data();
+                appSettings = { ...appSettings, ...docSnap.data() };
+                // Ensure arrays exist
+                appSettings.categories = appSettings.categories || [];
+                appSettings.locations = appSettings.locations || [];
+                appSettings.packTypes = appSettings.packTypes || [];
+                appSettings.baseUnits = appSettings.baseUnits || [];
             } else {
                 setDoc(doc(db, "settings", "main"), appSettings);
             }
