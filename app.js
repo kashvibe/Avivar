@@ -105,6 +105,7 @@ const seedData = [
 ];
 
 let inventory = [];
+let activeReports = [];
 let currentFilter = "All";
 let currentSearch = "";
 let sortColumn = "itemName";
@@ -666,17 +667,17 @@ function renderKiosk() {
         card.innerHTML = `
             <h3>${item.itemName}</h3>
             <div class="stock-readout">Current: <strong>${stockDisplay}</strong></div>
-            <button class="btn-take" onclick="window.takeItemKiosk('${item.id}')">Take 1 ${item.unitName}</button>
+            <button class="btn-take" onclick="window.takeItemKiosk('${item.id}', event)">Take 1 ${item.unitName}</button>
             <button class="text-btn" style="color:var(--warning-color);" onclick="window.flagDiscarded('${item.id}')">Flag 1 Discarded</button>
         `;
         grid.appendChild(card);
     });
 }
 
-window.takeItemKiosk = function(id) {
+window.takeItemKiosk = function(id, e) {
     window.adjustStock(id, -1, "consumed");
-    const btn = event.target; const origText = btn.innerText;
-    btn.innerText = "✓ Logged"; btn.style.background = "var(--success-color)";
+    const btn = e.currentTarget; const origText = btn.innerText;
+    btn.innerText = "Logged!"; btn.style.background = "var(--success-color)";
     setTimeout(() => { btn.innerText = origText; btn.style.background = ""; }, 1000);
 }
 
