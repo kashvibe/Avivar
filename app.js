@@ -173,14 +173,14 @@ function formatStock(totalUnits, packSize, packType, unitName) {
     totalUnits = parseInt(totalUnits);
     packSize = parseInt(packSize);
     
-    if (packSize === 1 || isNaN(packSize) || packSize === 0) return `${totalUnits} ${unitName}(s)`;
+    if (packSize <= 1 || isNaN(packSize)) return `${totalUnits} ${unitName}(s)`;
     
     const packs = Math.floor(totalUnits / packSize);
     const individuals = totalUnits % packSize;
     
-    if (packs > 0 && individuals > 0) return `${packs} ${packType}(s) (of ${packSize}) and ${individuals} loose ${unitName}(s)`;
-    if (packs > 0 && individuals === 0) return `${packs} ${packType}(s) (of ${packSize})`;
-    if (packs === 0 && individuals > 0) return `${individuals} loose ${unitName}(s)`;
+    if (packs > 0 && individuals > 0) return `${packs} ${packType}(s), ${individuals} ${unitName}(s)`;
+    if (packs > 0 && individuals === 0) return `${packs} ${packType}(s)`;
+    if (packs === 0 && individuals > 0) return `${individuals} ${unitName}(s)`;
     return "0";
 }
 
@@ -442,12 +442,61 @@ function renderAdmin() {
         return 0;
     });
 
+    const grouped = {};
     filtered.forEach(item => {
+        let baseName = item.itemName;
+        if (baseName.includes(" - ")) baseName = baseName.split(" - ")[0].trim();
+        if(!grouped[baseName]) grouped[baseName] = [];
+        grouped[baseName].push(item);
+    });
+
+    Object.keys(grouped).sort((a,b) => sortAsc ? a.localeCompare(b) : b.localeCompare(a)).forEach(baseName => {
+        const groupItems = grouped[baseName];
+        
+        if (groupItems.length === 1) {
+            tbody.appendChild(createRow(groupItems[0]));
+        } else {
+            const masterTr = document.createElement("tr");
+            masterTr.style.cursor = "pointer";
+            masterTr.style.background = "#f8fafc";
+            
+            let criticals = groupItems.filter(i => i._daysRemaining !== null && i._daysRemaining < 2).length;
+            let lows = groupItems.filter(i => i._daysRemaining !== null && i._daysRemaining >= 2 && i._daysRemaining < 5).length;
+            let flagHtml = "";
+            if (criticals > 0) flagHtml += `<span class="badge badge-danger" style="margin-left:8px;">${criticals} Critical</span>`;
+            if (lows > 0) flagHtml += `<span class="badge badge-warning" style="margin-left:8px;">${lows} Low</span>`;
+
+            masterTr.innerHTML = `
+                <td colspan="7" style="font-weight:600; padding:16px; border-bottom:1px solid #e2e8f0;">
+                    <span style="font-size:1.1rem;">📁 ${baseName}</span> 
+                    <span style="font-weight:normal; color:var(--text-secondary); margin-left:10px;">(${groupItems.length} variants/locations)</span>
+                    ${flagHtml}
+                    <span style="float:right; color:var(--primary-color);">▼ Expand</span>
+                </td>
+            `;
+            tbody.appendChild(masterTr);
+
+            groupItems.forEach(item => {
+                const tr = createRow(item);
+                tr.classList.add(`group-child-${baseName.replace(/\\W/g, '')}`);
+                tr.style.display = "none";
+                tr.children[0].style.paddingLeft = "40px"; // indent
+                tbody.appendChild(tr);
+            });
+
+            masterTr.onclick = () => {
+                const children = document.querySelectorAll(`.group-child-${baseName.replace(/\\W/g, '')}`);
+                children.forEach(c => c.style.display = c.style.display === "none" ? "table-row" : "none");
+            };
+        }
+    });
+
+    function createRow(item) {
         const tr = document.createElement("tr");
         let rowClasses = ""; let flagsHtml = "";
         
-        let daysStr = "Calculating...";
-        if (item._daysRemaining !== null && item._daysRemaining !== Infinity) {
+        let daysStr = "";
+        if (item._daysRemaining !== null && item._daysRemaining !== Infinity && !isNaN(item._daysRemaining)) {
             daysStr = `~${Math.round(item._daysRemaining)}d`;
             if (item._daysRemaining < 2) {
                 rowClasses += "alert-red ";
@@ -484,12 +533,13 @@ function renderAdmin() {
                     <button class="secondary-btn" onclick="adjustStock('${item.id}', -1)">-</button>
                     <button class="text-btn" onclick="restockProduct('${item.id}')">Restock</button>
                     <button class="text-btn" onclick="editProduct('${item.id}')">Edit</button>
+                    <button class="text-btn" onclick="duplicateProduct('${item.id}')">Dup</button>
                     <button class="text-btn" style="color:var(--danger-color)" onclick="deleteProduct('${item.id}')">Del</button>
                 </div>
             </td>
         `;
-        tbody.appendChild(tr);
-    });
+        return tr;
+    }
     
     renderKPIs();
     renderActionPanel();
@@ -608,14 +658,26 @@ function renderActionPanel() {
     const poData = {};
     inventory.forEach(item => {
         if (item.supplier && parseInt(item.totalUnits) <= getEffectiveParLevel(item)) {
-            if (!poData[item.supplier]) poData[item.supplier] = [];
+            if (!poData[item.supplier]) poData[item.supplier] = {};
             const targetUnits = Math.max(getEffectiveParLevel(item) * 2, parseInt(item.packSize));
             const unitsNeeded = Math.max(1, targetUnits - parseInt(item.totalUnits));
             const packsToOrder = Math.ceil(unitsNeeded / (parseInt(item.packSize) || 1));
-            poData[item.supplier].push(`${packsToOrder}x ${item.packType} of ${item.itemName}`);
+            
+            const itemKey = `${item.packType} of ${item.itemName}`;
+            if (!poData[item.supplier][itemKey]) poData[item.supplier][itemKey] = 0;
+            poData[item.supplier][itemKey] += packsToOrder;
         }
     });
-    renderPOTabs(poData);
+
+    const formattedPoData = {};
+    Object.keys(poData).forEach(supplier => {
+        formattedPoData[supplier] = [];
+        Object.keys(poData[supplier]).forEach(itemKey => {
+            formattedPoData[supplier].push(`${poData[supplier][itemKey]}x ${itemKey}`);
+        });
+    });
+
+    renderPOTabs(formattedPoData);
 }
 
 function renderPOTabs(poData) {
@@ -842,20 +904,36 @@ window.editProduct = function(id = null) {
             document.getElementById("packSize").value = item.packSize || 1;
             document.getElementById("unitName").value = item.unitName || "Unit";
             document.getElementById("totalUnits").value = item.totalUnits;
+            const stockUnitSelect = document.getElementById("stockUnit");
+            if(stockUnitSelect) stockUnitSelect.value = "unit";
             document.getElementById("parLevel").value = item.parLevel;
             document.getElementById("parLevelUnit").value = item.parLevelUnit || "unit";
             document.getElementById("expiryDate").value = item.expiryDate || "";
         }
     } else { document.getElementById("modalTitle").innerText = "Add New Product"; }
-    updatePackHelper();
+    // No need for updatePackHelper math calculation text anymore as it was removed from UI.
     document.getElementById("productModal").classList.remove("hidden");
 }
+
+window.duplicateProduct = function(id) {
+    window.editProduct(id);
+    document.getElementById("productId").value = "";
+    document.getElementById("modalTitle").innerText = "Duplicate Product";
+};
 
 function closeModal() { document.getElementById("productModal").classList.add("hidden"); }
 
 async function saveProduct(e) {
     e.preventDefault();
     const id = document.getElementById("productId").value || generateId();
+    
+    let baseStock = parseInt(document.getElementById("totalUnits").value) || 0;
+    const stockUnit = document.getElementById("stockUnit") ? document.getElementById("stockUnit").value : "unit";
+    const packSize = parseInt(document.getElementById("packSize").value) || 1;
+    if (stockUnit === "pack") {
+        baseStock = baseStock * packSize;
+    }
+
     const newItem = {
         id: id,
         itemName: document.getElementById("itemName").value,
@@ -865,9 +943,9 @@ async function saveProduct(e) {
         cost: parseFloat(document.getElementById("cost").value) || 0,
         useCase: document.getElementById("useCase").value,
         packType: document.getElementById("packName").value,
-        packSize: parseInt(document.getElementById("packSize").value) || 1,
+        packSize: packSize,
         unitName: document.getElementById("unitName").value,
-        totalUnits: parseInt(document.getElementById("totalUnits").value) || 0,
+        totalUnits: baseStock,
         parLevel: parseInt(document.getElementById("parLevel").value) || 0,
         parLevelUnit: document.getElementById("parLevelUnit").value,
         expiryDate: document.getElementById("expiryDate").value,
